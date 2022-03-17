@@ -190,6 +190,7 @@ for (let i = 0; i < x.length; i++) {
 // Update Sliders
 pore_vol_sl.title = 'Pore Volume (1PV =' + (PV/3600).toFixed(2) +'h)';
 xBTC_sl.end       = col_len_sl.value;
+BTClocation.location = xBTC
 
 source1.change.emit();
 source2.change.emit();
