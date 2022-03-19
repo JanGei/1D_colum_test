@@ -125,7 +125,7 @@ COLp = Figure(min_height = 400, y_axis_label='c(t)/c0',
 COLp.line('x', 'y', source = source1, line_width = 3, line_alpha = 0.6, line_color = 'red')
 COLp.line('x', 'ymin', source = source1, line_width = 3, line_alpha = 0.6, line_color = 'black', line_dash = 'dashed')
 COLp.line('x', 'ymax', source = source1, line_width = 3, line_alpha = 0.6, line_color = 'black', line_dash = 'dashed')
-BTClocation = Span(location=col_len[3]/2, dimension = 'height',line_color='blue', line_dash='dashed', line_width=3)
+BTClocation = Span(location=col_len[3]/2, dimension = 'height',line_color='cyan', line_dash='dashed', line_width=3)
 COLp.add_layout(BTClocation)
 COLp.y_range = Range1d(0, 1.05)
 COLp.xaxis.axis_label_text_font_size = "17pt"
