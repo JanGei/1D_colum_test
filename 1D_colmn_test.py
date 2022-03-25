@@ -86,7 +86,7 @@ Area =  math.pi * col_rad_ini**2
 
 # Latin Hypercube Sampling 
 sampler = qmc.LatinHypercube(d=1)
-# 2 Samples for uncertain variables with 25 values each. At 100 the model is slow
+# 2 Samples for uncertain variables with 100 values each
 Lcube1 = sampler.random(100)
 Lcube2 = sampler.random(100)
 
