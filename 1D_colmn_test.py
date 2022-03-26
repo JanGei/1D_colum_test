@@ -36,7 +36,7 @@ def getc_cont(x,c,vel,t,Lcube1,Lcube2,reac_l,reac_h,disp_l,disp_h):
 
 # Initial slider parameters (min, max, step, value)
 # Pore Volume [-]
-pore_vol  = [np.log(0.001), np.log(10), (np.log(10)-np.log(0.001)) / 1000, np.log(0.5)]
+pore_vol  = [np.log(0.001), np.log(7), (np.log(7)-np.log(0.001)) / 1000, np.log(0.5)]
 # Column radius [m]
 col_rad   = [0.005, 0.2, 0.0001, 0.05]
 # Flow rate [ml/h]
@@ -138,7 +138,7 @@ BTCp = Figure(min_height = 400, y_axis_label='c(t)/c0',
             x_axis_label='Pore Volume',sizing_mode="stretch_both")
 BTCp.line('x2', 'y2', source = source2, line_width = 3, line_alpha = 0.6, line_color = 'red')
 BTCp.y_range = Range1d(0, 1.05)
-BTCp.x_range = Range1d(0, 8)
+BTCp.x_range = Range1d(0, 7)
 BTCp.xaxis.axis_label_text_font_size = "17pt"
 BTCp.yaxis.axis_label_text_font_size = "17pt"
 BTCp.xaxis.major_label_text_font_size = "12pt"

@@ -2,7 +2,9 @@ function getc(x,vel,t,Lcube1,Lcube2,reac_l,reac_h,disp_l,disp_h,t_inj,rg) {
   var c = []
   var cmin = []
   var cmax = []
-  var tau = []
+  var r_mean = (reac_l+reac_h)/2
+  var D_mean = (disp_l+disp_h)/2
+  var gam_mean = get_gamma(r_mean,D_mean,vel)
   for (let i = 0; i < x.length; i++) { 
       if (x[i] <= 0) {
         c[i] = 1
@@ -14,20 +16,30 @@ function getc(x,vel,t,Lcube1,Lcube2,reac_l,reac_h,disp_l,disp_h,t_inj,rg) {
             var r_intermed = reac_l + (reac_h-reac_l)*Lcube1[j]
             var D_intermed = disp_l + (disp_h-disp_l)*Lcube2[j]
             var gam_intermed = get_gamma(r_intermed,D_intermed,vel)
-            if (rg == 1  && t>t_inj) {
+            if (rg == 1) {
               // Pulse injection
               if (t<t_inj) {
-                tau = 0
+                intlist[j] = 1/2 * (1-math.erf((x[i]-vel*t) / math.sqrt(4*D_intermed*t)))
               } else {
-                tau = t_inj
+                intlist[j] = 1/2 * ((1-math.erf((x[i]-vel*t) / math.sqrt(4*D_intermed*t)))-(1-math.erf((x[i]-vel*(t-t_inj))/math.sqrt(4*D_intermed*(t-t_inj)))));
               }
-              intlist[j] = 1/2 * ((1-math.erf((x[i]-vel*t) / math.sqrt(4*D_intermed*t)))-(1-math.erf((x[i]-vel*(t-tau))/math.sqrt(4*D_intermed*(t-tau)))));
             } else {
               // Cotinuous injection
               intlist[j] = 1/2 * Math.exp(x[i]*vel/(2*D_intermed))*(Math.exp((-x[i])*vel*gam_intermed/(2*D_intermed))*(1-math.erf((x[i]-vel*t*gam_intermed)/math.sqrt(4*D_intermed*t)))+math.exp(x[i]*vel*gam_intermed/(2*D_intermed))*(1-math.erf((x[i]+vel*t*gam_intermed)/math.sqrt(4*D_intermed*t))));
             }
           }
-        c[i]    = math.mean(intlist)
+        // Main line with mean values of dispersion and reaction
+        if (rg==1){
+          // Pulse injection
+          if (t<t_inj) {
+            c[i] = 1/2 * (1-math.erf((x[i]-vel*t) / math.sqrt(4*D_mean*t)))
+          } else {
+            c[i] = 1/2 * ((1-math.erf((x[i]-vel*t) / math.sqrt(4*D_mean*t)))-(1-math.erf((x[i]-vel*(t-t_inj))/math.sqrt(4*D_mean*(t-t_inj)))));
+          }
+        } else {
+          // Continuous injection
+          c[i] = 1/2 * Math.exp(x[i]*vel/(2*D_mean))*(Math.exp((-x[i])*vel*gam_mean/(2*D_mean))*(1-math.erf((x[i]-vel*t*gam_mean)/math.sqrt(4*D_mean*t)))+math.exp(x[i]*vel*gam_mean/(2*D_mean))*(1-math.erf((x[i]+vel*t*gam_mean)/math.sqrt(4*D_mean*t))));
+        }
         cmin[i] = math.min(intlist)
         cmax[i] = math.max(intlist)
     }
@@ -40,16 +52,14 @@ function getc(x,vel,t,Lcube1,Lcube2,reac_l,reac_h,disp_l,disp_h,t_inj,rg) {
 
 function getc_BTC(xBTC,vel,tsp,gam,t_inj,D) {
   const c = []
-  var tau = []
   for (let i = 0; i < tsp.length; i++) {
-      if (rg==1 && tsp[i] > t_inj){
+      if (rg==1){
         // Pulse injection |this produces negative values in the begining
         if (tsp[i]<t_inj) {
-          tau = 0
+          c[i] = 1/2 * (1-math.erf((xBTC-vel*tsp[i]) / math.sqrt(4*D*tsp[i])))
         } else {
-          tau = t_inj
+          c[i] = 1/2 * ((1-math.erf((xBTC-vel*tsp[i]) / math.sqrt(4*D*tsp[i])))-(1-math.erf((xBTC-vel*(tsp[i]-t_inj))/math.sqrt(4*D*(tsp[i]-t_inj)))));
         }
-        c[i] = 1/2 * ((1-math.erf((xBTC-vel*tsp[i]) / math.sqrt(4*D*tsp[i])))-(1-math.erf((xBTC-vel*(tsp[i]-tau))/math.sqrt(4*D*(tsp[i]-tau)))));
       } else {
         // Continuous injection
         c[i] = 1/2 * Math.exp(xBTC*vel/(2*D))*(Math.exp((-xBTC)*vel*gam/(2*D))*(1-math.erf((xBTC-vel*tsp[i]*gam)/math.sqrt(4*D*tsp[i])))+math.exp(xBTC*vel*gam/(2*D))*(1-math.erf((xBTC+vel*tsp[i]*gam)/math.sqrt(4*D*tsp[i]))));
@@ -138,11 +148,9 @@ for (let j = 0; j < x2.length; j++) {
   tsp[j] = x2[j] * PV;
 }
 
-console.log(tsp)
-
 // This if statement has no meaning besides preventing a Type Error <-- why is that? It doesnt work without it
 if (1<2){ 
-  [c, cmin, cmax] = getc(x,vel,t,Lcube1,Lcube2,reac_l,reac_h,disp_l,disp_h,t_inj,rg)
+  [c, cmin, cmax] = getc(x,sep_vel,t,Lcube1,Lcube2,reac_l,reac_h,disp_l,disp_h,t_inj,rg)
   cBTX = getc_BTC(xBTC,sep_vel,tsp,gam,t_inj,Dis) 
 }
 
@@ -170,8 +178,8 @@ if (rg==0) {
   pulse_inj_sl.visible = true
 }
 
-console.log(x2,y2)
-console.log(x,y)
+console.log(y)
+console.log(y2)
 
 source1.change.emit();
 source2.change.emit();
