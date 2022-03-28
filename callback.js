@@ -107,10 +107,12 @@ var ymin= source1.data['ymin']
 var ymax= source1.data['ymax']
 var x2  = source2.data['x2']
 var y2  = source2.data['y2']
+var x3  = source3.data['xBTC']
+var y3  = source3.data['yBTC']
 
 // Extracting slider values
 const col_len   = col_len_sl.value;                 // [m]
-const xBTC      = xBTC_sl.value;                    // [m]
+var xBTC      = x3[0];                         // [m]
 const rad       = col_rad_sl.value;                 // [m]
 const reac_l    = Math.exp(reac_sl.value[0])/3600;  // [1/s]
 const reac_h    = Math.exp(reac_sl.value[1])/3600;  // [1/s]
@@ -120,7 +122,7 @@ const Q         = flow_sl.value/1000/1000/3600;     // [m3/s]
 const n         = poros_sl.value;                   // [-]
 const tPV       = Math.exp(pore_vol_sl.value);      // [-]
 const t_inj     = pulse_inj_sl.value                // [s]
-const rg        = rbgr.active                       // [false]
+const rg        = rg_CP.active                      // [false]
 
 // Initializing empty lists
 var c = []
@@ -140,6 +142,14 @@ const PV      = PS / (A*vel)                  // [s] VEL oder SEP_VEL?
 const t       = tPV * PV                      // [s]
 
 const gam     = Math.sqrt(1 + 4 * reac * Dis / sep_vel**2)  
+
+// Fix Point draw tool to x-axis and limit to y-axis
+y3[0] = 0
+if (x3[0]<=0.005) {
+  x3[0] = 0.01
+} else if (x3[0] > col_len) {
+  x3[0] = col_len
+}
 
 for (let j = 0; j < x.length; j++) {
   x[j] = -0.02*col_len + 1.02*col_len/x.length * j;
@@ -166,11 +176,11 @@ for (let i = 0; i < x.length; i++) {
   y2[i] = cBTX[i]
 }
 
-
 // Update Sliders
 pore_vol_sl.title = 'Pore Volume (1PV =' + (PV/3600).toFixed(2) +'h)';
 xBTC_sl.end       = col_len_sl.value;
-BTClocation.location = xBTC
+BTCp.title.text   = 'Breakthrough Curve at x = ' + xBTC.toFixed(3) + 'm (Drag diamond in upper plot to change)'
+
 
 if (rg==0) {
   pulse_inj_sl.visible = false
@@ -178,8 +188,10 @@ if (rg==0) {
   pulse_inj_sl.visible = true
 }
 
-console.log(y)
-console.log(y2)
+console.log((xBTC-sep_vel*tsp[100]*gam)/math.sqrt(4*Dis*tsp[100]))
+console.log(tsp[100])
+//console.log(sep_vel)
+//console.log(Dis)
 
 source1.change.emit();
 source2.change.emit();

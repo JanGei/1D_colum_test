@@ -1,7 +1,9 @@
+from cmath import nan
 from logging import PlaceHolder
 from bokeh.layouts import column, row
-from bokeh.models import ColumnDataSource,FuncTickFormatter, Span, CustomJS, Slider, Panel, Range1d, Tabs, Button, RangeSlider, RadioButtonGroup
+from bokeh.models import ColumnDataSource,FuncTickFormatter, CustomJS, Slider, Panel, Range1d, Tabs, Button, RangeSlider, RadioButtonGroup, PointDrawTool
 from bokeh.plotting import Figure, output_file, show
+from bokeh.events import Tap, Pan
 import numpy as np
 import math
 from math import exp, erfc, sqrt
@@ -18,11 +20,10 @@ def get_gamma(reac,Dis,sep_vel):
   res = sqrt(1 + 4 * reac * Dis / sep_vel**2)
   return res
 
-def getc_cont(x,c,vel,t,Lcube1,Lcube2,reac_l,reac_h,disp_l,disp_h):
-  for j in range(len(Lcube1)):
-
-    r_intermed = reac_l + (reac_h-reac_l)*Lcube1[j]
-    D_intermed = disp_l + (disp_h-disp_l)*Lcube2[j]
+def getc_cont(x,c,vel,t,L1,L2,reac_l,reac_h,disp_l,disp_h):
+  for j in range(len(L1)):
+    r_intermed = reac_l + (reac_h-reac_l)*L1[j]
+    D_intermed = disp_l + (disp_h-disp_l)*L2[j]
     gam_intermed = get_gamma(r_intermed,D_intermed,vel)
 
     for i in range(len(x)):
@@ -76,7 +77,7 @@ porevolume  = porespace / flow_ini
 # Initial time point
 time_ini    = porevolume * exp(pore_vol[3]) 
 # Intial point for breakthrough curve
-xBTC_ini    = col_len_ini
+xBTC_ini    = col_len_ini/2
 # Normed inlet concentration
 c0 = 1
 # Seepage velocity [m/s]
@@ -93,31 +94,33 @@ Lcube2 = sampler.random(100)
 # Concentration list
 c      = np.zeros((len(Lcube1),len(x)))
 # Concentration lists for the highest and smallest concentration at each point in the column
-c_mean = np.empty((len(x)))
+c_mean = np.empty((1,len(x)))
 c_min  = np.empty((len(x)))
 c_max  = np.empty((len(x)))
 # Concnetration list for breakthrough curve
 c_t = np.empty((len(PVspan)))
 
 # Solving 1D transport equation in space
-c = getc_cont(x,c,velocity_ini,time_ini,Lcube1,Lcube2,exp(reac[3])/3600,exp(reac[4])/3600,exp(disp[3])/3600,exp(disp[4])/3600)
+c1 = getc_cont(x,c,velocity_ini,time_ini,Lcube1,Lcube2,exp(reac[3])/3600,exp(reac[4])/3600,exp(disp[3])/3600,exp(disp[4])/3600)
+c_mean = getc_cont(x,c_mean,velocity_ini,time_ini,[0.5],[0.5],exp(reac[3])/3600,exp(reac[4])/3600,exp(disp[3])/3600,exp(disp[4])/3600)
+
+print(c_mean)
 
 for j in range(len(x)):
-  c_mean[j] = np.mean(c[:,j])
-  c_min[j] = np.min(c[:,j])
-  c_max[j] = np.max(c[:,j])
+  c_min[j] = np.min(c1[:,j])
+  c_max[j] = np.max(c1[:,j])
 
 # Gamma coefficient needed for BTC
 gam_m = get_gamma(reac_ini,disp_ini,velocity_ini)
 
 # Solving 1D transport equation in time
 for j in range(len(PVspan)):
-  c_t[j] = c0/2 * exp(xBTC_ini*velocity_ini/(2*disp_ini))*(exp(-xBTC_ini*velocity_ini*gam_m/(2*disp_ini))*erfc((xBTC_ini-velocity_ini*exp(PVspan[j])*porevolume*gam_m)/sqrt(4*disp_ini*exp(PVspan[j])*porevolume))+exp(xBTC_ini*velocity_ini*gam_m/(2*disp_ini))*erfc((xBTC_ini+velocity_ini*exp(PVspan[j])*porevolume*gam_m)/sqrt(4*disp_ini*exp(PVspan[j])*porevolume)))
-
+  c_t[j] = c0/2 * exp(xBTC_ini*velocity_ini/(2*disp_ini))*(exp(-xBTC_ini*velocity_ini*gam_m/(2*disp_ini))*erfc((xBTC_ini-velocity_ini*PVspan[j]*porevolume*gam_m)/sqrt(4*disp_ini*PVspan[j]*porevolume))+exp(xBTC_ini*velocity_ini*gam_m/(2*disp_ini))*erfc((xBTC_ini+velocity_ini*PVspan[j]*porevolume*gam_m)/sqrt(4*disp_ini*PVspan[j]*porevolume)))
 
 # Defining data sources with dictionary
-source1 = ColumnDataSource(data = dict(x=x, y=c_mean, ymin = c_min, ymax = c_max))
+source1 = ColumnDataSource(data = dict(x=x, y=c_mean[0], ymin = c_min, ymax = c_max))
 source2 = ColumnDataSource(data = dict(x2=PVspan, y2=c_t))
+source3 = ColumnDataSource(data = dict(xBTC = [col_len[3]/2], yBTC = [0]))
 
 # Concentrtation Plot
 COLp = Figure(min_height = 400, y_axis_label='c(t)/c0',
@@ -125,24 +128,29 @@ COLp = Figure(min_height = 400, y_axis_label='c(t)/c0',
 COLp.line('x', 'y', source = source1, line_width = 3, line_alpha = 0.6, line_color = 'red')
 COLp.line('x', 'ymin', source = source1, line_width = 3, line_alpha = 0.6, line_color = 'black', line_dash = 'dashed')
 COLp.line('x', 'ymax', source = source1, line_width = 3, line_alpha = 0.6, line_color = 'black', line_dash = 'dashed')
-BTClocation = Span(location=col_len[3]/2, dimension = 'height',line_color='blue', line_dash='dashed', line_width=3)
-COLp.add_layout(BTClocation)
-COLp.y_range = Range1d(0, 1.05)
+COLp.y_range = Range1d(-0.03, 1.05)
 COLp.xaxis.axis_label_text_font_size = "17pt"
 COLp.yaxis.axis_label_text_font_size = "17pt"
 COLp.xaxis.major_label_text_font_size = "12pt"
 COLp.yaxis.major_label_text_font_size = "12pt" 
 
-# BTC plot
+# Initializing PointDrawTool
+BTCcircle = COLp.diamond(x='xBTC',y = 'yBTC', source=source3 , size=18, color = 'black', fill_alpha=0.6 )
+COLp.add_tools(PointDrawTool(renderers=[BTCcircle], num_objects = 1))
+COLp.toolbar.active_multi = COLp.select_one(PointDrawTool)
+
+# BTC plot -- Now consistent with JS side
 BTCp = Figure(min_height = 400, y_axis_label='c(t)/c0',
             x_axis_label='Pore Volume',sizing_mode="stretch_both")
 BTCp.line('x2', 'y2', source = source2, line_width = 3, line_alpha = 0.6, line_color = 'red')
 BTCp.y_range = Range1d(0, 1.05)
 BTCp.x_range = Range1d(0, 7)
+BTCp.title = "Breakthrough Curve at x = 0.100 m (Drag diamond in upper plot to change)"
 BTCp.xaxis.axis_label_text_font_size = "17pt"
 BTCp.yaxis.axis_label_text_font_size = "17pt"
 BTCp.xaxis.major_label_text_font_size = "12pt"
 BTCp.yaxis.major_label_text_font_size = "12pt" 
+BTCp.title.text_font_size = "13pt"
 
 # sliders 
 pore_vol_sl   = Slider(start=pore_vol[0], end=pore_vol[1], value=pore_vol[3], step=pore_vol[2], title="Pore Volume (1PV = " + str("%.2f" %(porevolume/3600)) + " h)",
@@ -164,13 +172,16 @@ poros_sl      = Slider(title = "Porosity", start = poros[0], end = poros[1], ste
 xBTC_sl       = Slider(title = "BTC Location", start = col_len[0], end = col_len[3], step = col_len[2], value = col_len[3]/2,
                     format=FuncTickFormatter(code="""return tick.toFixed(3)+' [m]'"""),sizing_mode="stretch_width")
 
-Labels = ["Continuous Injection", "Pulse Injection"]
-rbgr = RadioButtonGroup(labels = Labels, active = 0)
+Labels1 = ["Continuous Injection", "Pulse Injection"]
+Labels2 = ["Analytical Model", "Numerical Model"]
+rg_CP = RadioButtonGroup(labels = Labels1, active = 0)
+rg_AN = RadioButtonGroup(labels = Labels2, active = 0)
 
 with open ('callback.js', 'r') as file:
   cbCode = file.read()
 callback = CustomJS(args=dict(source1=source1,
                             source2 = source2,
+                            source3 = source3,
                             Lcube1 = Lcube1,
                             Lcube2 = Lcube2,
                             pore_vol_sl = pore_vol_sl,
@@ -180,10 +191,12 @@ callback = CustomJS(args=dict(source1=source1,
                             col_rad_sl = col_rad_sl,
                             flow_sl = flow_sl,
                             poros_sl = poros_sl,
-                            rbgr = rbgr,
+                            rg_CP = rg_CP,
+                            rg_AN = rg_AN,
                             pulse_inj_sl = pulse_inj_sl,
                             xBTC_sl = xBTC_sl,
-                            BTClocation = BTClocation),
+                            BTCp = BTCp
+                            ),
     code=cbCode)
 
 savebutton1 = Button(label="Save (Upper Plot)", button_type="success",sizing_mode="stretch_width")
@@ -202,9 +215,12 @@ flow_sl.js_on_change('value', callback)
 poros_sl.js_on_change('value', callback)
 pulse_inj_sl.js_on_change('value', callback)
 xBTC_sl.js_on_change('value', callback)
-rbgr.js_on_change('active',callback)
+rg_CP.js_on_change('active',callback)
+rg_AN.js_on_change('active',callback)
+COLp.js_on_event(Tap, callback)
+COLp.js_on_event(Pan, callback)
 
-layout1 = column(rbgr,pore_vol_sl,col_len_sl,col_rad_sl,reac_sl,disp_sl,flow_sl,poros_sl,xBTC_sl,pulse_inj_sl,sizing_mode="stretch_width")
+layout1 = column(rg_AN,rg_CP,pore_vol_sl,col_len_sl,col_rad_sl,reac_sl,disp_sl,flow_sl,poros_sl,xBTC_sl,pulse_inj_sl,sizing_mode="stretch_width")
 layout2 = column(savebutton1, savebutton2, sizing_mode="stretch_width")
 
 pulse_inj_sl.visible = False
@@ -236,3 +252,14 @@ filedata = filedata.replace('+placeholder4+', div4)
 with open('index.html', 'w') as file:
   file.write(filedata)
 
+print((xBTC_ini-velocity_ini*PVspan[100]*porevolume*gam_m)/sqrt(4*disp_ini*PVspan[100]*porevolume))
+print(PVspan[100])
+print(porevolume)
+
+
+# These are identical
+#print(xBTC_ini)
+#print(velocity_ini)
+#print(disp_ini)
+#print(gam_m)
+#print(porevolume*PVspan[100])
