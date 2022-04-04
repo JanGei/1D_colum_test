@@ -82,7 +82,7 @@
       <div class="main" style="flex: 7">
         +placeholder1+
       </div>
-      <div class="side" style="flex: 3">
+      <div class="side" style="flex: 3; border-left: 2px solid #262626;">
         +placeholder2+
       </div>
     </div>
@@ -90,7 +90,7 @@
       <div class="main" style="flex: 7; border-top: 2px dashed #262626;">
         +placeholder3+
       </div>
-      <div class="side" style="flex: 3; border-top: 2px dashed #262626;">
+      <div class="side" style="flex: 3; border-left: 2px solid #262626;">
         +placeholder4+
       </div>
     </div>

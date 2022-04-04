@@ -48,6 +48,21 @@ poros     = [0.01, 1, 0.01, 0.5]
 puls_inj  = [30, 43200, 30, 18000]
 # Column length [m]
 col_len   = [0.01, 0.5, 0.001, 0.2]
+
+# Initial slider parameter (min, max, step, value) for numerical model
+# Solid densitiy [kg/m3]
+rho_s     = [2000, 3000, 1, 2650]
+# Linear partitioning coefficient [m3/kg]
+Kd        = [5e-5, 5e-3, 5e-5, 2e-3]
+# Half saturation concentration [mol/m3]
+K_ads     = [0.01, 10, 0.01, 1]
+# Specific sorption capacity [mol/kg]
+s_max     = [0.0001, 1, 0.0001, 0.1]
+# Freundlich Sorption Parameter [mmol^(1-n)*L^(n) / kg]
+K_Fr      = [0.01, 10, 0.01, 1]
+# Frfeundlich n [-]
+Fr_n      = [1, 2, 0.01, 1.3]
+
 # number of nodes in the domain
 num_n = 200
 
@@ -72,16 +87,16 @@ reac_ini    = np.mean([exp(reac[3]), exp(reac[4])])/3600    # [1/s]
 
 # Pore space in the column [m3]
 porespace   = col_len_ini * math.pi * col_rad_ini**2 * poros_ini
+# Seepage velocity [m/s]
+velocity_ini    = flow_ini/(col_rad_ini**2*math.pi*poros_ini)
 # Time needed to fully flush the column
-porevolume  = porespace / flow_ini
+porevolume  = col_len_ini / velocity_ini
 # Initial time point
 time_ini    = porevolume * exp(pore_vol[3]) 
 # Intial point for breakthrough curve
 xBTC_ini    = col_len_ini/2
 # Normed inlet concentration
 c0 = 1
-# Seepage velocity [m/s]
-velocity_ini    = flow_ini/(col_rad_ini**2*math.pi)*poros_ini
 # Area [m2]
 Area =  math.pi * col_rad_ini**2 
 
@@ -103,8 +118,6 @@ c_t = np.empty((len(PVspan)))
 # Solving 1D transport equation in space
 c1 = getc_cont(x,c,velocity_ini,time_ini,Lcube1,Lcube2,exp(reac[3])/3600,exp(reac[4])/3600,exp(disp[3])/3600,exp(disp[4])/3600)
 c_mean = getc_cont(x,c_mean,velocity_ini,time_ini,[0.5],[0.5],exp(reac[3])/3600,exp(reac[4])/3600,exp(disp[3])/3600,exp(disp[4])/3600)
-
-print(c_mean)
 
 for j in range(len(x)):
   c_min[j] = np.min(c1[:,j])
@@ -169,17 +182,62 @@ flow_sl       = Slider(title = "Flow Rate", start = flow[0], end = flow[1], step
                     format=FuncTickFormatter(code="""return tick.toFixed(1)+' [mL/h]'"""),sizing_mode="stretch_width")
 poros_sl      = Slider(title = "Porosity", start = poros[0], end = poros[1], step = poros[2], value = poros[3],
                     format=FuncTickFormatter(code="""return tick.toFixed(2)+' [-]'"""),sizing_mode="stretch_width")
-xBTC_sl       = Slider(title = "BTC Location", start = col_len[0], end = col_len[3], step = col_len[2], value = col_len[3]/2,
-                    format=FuncTickFormatter(code="""return tick.toFixed(3)+' [m]'"""),sizing_mode="stretch_width")
+# sliders for numerical model
+rho_s_sl      = Slider(title = "Solid Density", start = rho_s[0], end = rho_s[1], step = rho_s[2], value = rho_s[3],
+                    format=FuncTickFormatter(code="""return (tick/1000).toFixed(2)+' [kg/L]'"""),sizing_mode="stretch_width")
+Kd_sl         = Slider(title = "Linear Partinioning Coefficient", start = Kd[0], end = Kd[1], step = Kd[2], value = Kd[3],
+                    format=FuncTickFormatter(code="""return (tick*1000).toFixed(2)+' [L/kg]'"""),sizing_mode="stretch_width")
+Kads_sl       = Slider(title = "Half Saturation Concentration", start = K_ads[0], end = K_ads[1], step = K_ads[2], value = K_ads[3],
+                    format=FuncTickFormatter(code="""return (tick).toFixed(2)+' [mmol/L]'"""),sizing_mode="stretch_width")
+s_max_sl      = Slider(title = "Specific Sorption Capacity", start = s_max[0], end = s_max[1], step = s_max[2], value = s_max[3],
+                    format=FuncTickFormatter(code="""return (tick*1000).toFixed(1)+' [mmol/L]'"""),sizing_mode="stretch_width")
+K_Fr_sl       = Slider(title = "Freundlich Sorption Parameter", start = K_Fr[0], end = K_Fr[1], step = K_Fr[2], value = K_Fr[3],
+                    format=FuncTickFormatter(code="""return tick.toFixed(2)+' [mmol^(1-n)*L^(n) / kg]'"""),sizing_mode="stretch_width")
+Fr_n_sl       = Slider(title = "Freundlich n", start = Fr_n[0], end = Fr_n[1], step = Fr_n[2], value = Fr_n[3],
+                    format=FuncTickFormatter(code="""return tick.toFixed(2)+' [L/kg]'"""),sizing_mode="stretch_width")
 
-Labels1 = ["Continuous Injection", "Pulse Injection"]
-Labels2 = ["Analytical Model", "Numerical Model"]
-rg_CP = RadioButtonGroup(labels = Labels1, active = 0)
-rg_AN = RadioButtonGroup(labels = Labels2, active = 0)
+Labels1 = ["Analytical Model", "Numerical Model"]
+Labels2 = ["Continuous Injection", "Pulse Injection"]
+Labels3 = ["Linear Sorption", "Langmuir Sorption", "Freundlich Sorption"]
 
-with open ('callback.js', 'r') as file:
-  cbCode = file.read()
-callback = CustomJS(args=dict(source1=source1,
+rg_AN = RadioButtonGroup(labels = Labels1, active = 0)
+rg_CP = RadioButtonGroup(labels = Labels2, active = 0)
+rg_ST = RadioButtonGroup(labels = Labels3, active = 0)
+
+
+with open ('callback_compute_numerical.js', 'r') as file2:
+  cbCode_numerical = file2.read()
+callback_compute_numerical = CustomJS(args=dict(
+                            source1=source1,
+                            source2 = source2,
+                            source3 = source3,
+                            pore_vol_sl = pore_vol_sl,
+                            col_len_sl = col_len_sl,
+                            reac_sl = reac_sl,
+                            disp_sl = disp_sl,
+                            col_rad_sl = col_rad_sl,
+                            flow_sl = flow_sl,
+                            poros_sl = poros_sl,
+                            rho_s_sl = rho_s_sl,
+                            Kd_sl = Kd_sl,
+                            Kads_sl = Kads_sl,
+                            s_max_sl = s_max_sl,
+                            K_Fr_sl = K_Fr_sl,
+                            Fr_n_sl = Fr_n_sl,
+                            rg_CP = rg_CP,
+                            rg_ST = rg_ST,
+                            pulse_inj_sl = pulse_inj_sl,
+                            BTCp = BTCp
+                            ),
+    code=cbCode_numerical)
+
+computebutton = Button(label="Compute Numerical Model", button_type="success",sizing_mode="stretch_width")
+computebutton.js_on_click(callback_compute_numerical)
+
+with open ('callback.js', 'r') as file1:
+  cbCode = file1.read()
+callback = CustomJS(args=dict(
+                            source1=source1,
                             source2 = source2,
                             source3 = source3,
                             Lcube1 = Lcube1,
@@ -191,11 +249,18 @@ callback = CustomJS(args=dict(source1=source1,
                             col_rad_sl = col_rad_sl,
                             flow_sl = flow_sl,
                             poros_sl = poros_sl,
+                            rho_s_sl = rho_s_sl,
+                            Kd_sl = Kd_sl,
+                            Kads_sl = Kads_sl,
+                            s_max_sl = s_max_sl,
+                            K_Fr_sl = K_Fr_sl,
+                            Fr_n_sl = Fr_n_sl,
                             rg_CP = rg_CP,
                             rg_AN = rg_AN,
+                            rg_ST = rg_ST,
                             pulse_inj_sl = pulse_inj_sl,
-                            xBTC_sl = xBTC_sl,
-                            BTCp = BTCp
+                            BTCp = BTCp,
+                            computebutton = computebutton
                             ),
     code=cbCode)
 
@@ -214,16 +279,25 @@ disp_sl.js_on_change('value', callback)
 flow_sl.js_on_change('value', callback)
 poros_sl.js_on_change('value', callback)
 pulse_inj_sl.js_on_change('value', callback)
-xBTC_sl.js_on_change('value', callback)
 rg_CP.js_on_change('active',callback)
 rg_AN.js_on_change('active',callback)
+rg_ST.js_on_change('active',callback)
+# Make a button that needs to be pressed in order to compute numerical model?
 COLp.js_on_event(Tap, callback)
 COLp.js_on_event(Pan, callback)
 
-layout1 = column(rg_AN,rg_CP,pore_vol_sl,col_len_sl,col_rad_sl,reac_sl,disp_sl,flow_sl,poros_sl,xBTC_sl,pulse_inj_sl,sizing_mode="stretch_width")
-layout2 = column(savebutton1, savebutton2, sizing_mode="stretch_width")
+layout1 = column(rg_AN,rg_CP,pore_vol_sl,col_len_sl,col_rad_sl,reac_sl,disp_sl,flow_sl,poros_sl,pulse_inj_sl, savebutton1, savebutton2,sizing_mode="stretch_width")
+layout2 = column(rg_ST,rho_s_sl,Kd_sl,Kads_sl,s_max_sl,K_Fr_sl,Fr_n_sl,computebutton, sizing_mode="stretch_width")
 
 pulse_inj_sl.visible = False
+rho_s_sl.visible = False
+Kd_sl.visible = False
+rg_ST.visible = False
+computebutton.visible = False
+Kads_sl.visible = False
+s_max_sl.visible = False
+K_Fr_sl.visible = False
+Fr_n_sl.visible = False
 
 tab1 = Panel(child=COLp, title="ADRE")
 plots = Tabs(tabs=[tab1])
@@ -252,9 +326,10 @@ filedata = filedata.replace('+placeholder4+', div4)
 with open('index.html', 'w') as file:
   file.write(filedata)
 
-print((xBTC_ini-velocity_ini*PVspan[100]*porevolume*gam_m)/sqrt(4*disp_ini*PVspan[100]*porevolume))
-print(PVspan[100])
-print(porevolume)
+print(3*disp_ini / (velocity_ini**2))
+print(disp_ini)
+print(velocity_ini)
+
 
 
 # These are identical

@@ -53,7 +53,7 @@ function getc(x,vel,t,Lcube1,Lcube2,reac_l,reac_h,disp_l,disp_h,t_inj,rg) {
 function getc_BTC(xBTC,vel,tsp,gam,t_inj,D) {
   const c = []
   for (let i = 0; i < tsp.length; i++) {
-      if (rg==1){
+      if (rg_CP==1){
         // Pulse injection |this produces negative values in the begining
         if (tsp[i]<t_inj) {
           c[i] = 1/2 * (1-math.erf((xBTC-vel*tsp[i]) / math.sqrt(4*D*tsp[i])))
@@ -74,32 +74,6 @@ function get_gamma(reac,Dis,sep_vel) {
   return res
 }
 
-function transport_num(c,disp,dx,dt){
-  // This function approximates advection and dispersion numerically by a FVM
-
-  // Move concentration by 1 cell
-  for (let i = 0; i < c.length-1; i++) {
-    c[i+1] = c[i]
-  }
-  // First cell gets inlet concentration
-  c[1] = 1
-  var Jd = []
-  // Dispersive fluxes between cells
-  for (let i = 0; i < c.length+1; i++) {
-    if (i == 0) {
-      Jd[i] = 0
-    } else if (i == c.length) {
-      Jd[i] = Jd[i-1]
-    } else {
-      Jd[i] = (c[i-1] - c[i])/dx*disp
-    }
-  }
-
-  for (let i = 0; i < Jd.length-1; i++) {
-    c[i] = c[i] + dt/dx * (Jd[i] - Jd[i+1])
-  }
-}
-
 // Extracting data sources
 var x   = source1.data['x'] 
 var y   = source1.data['y']
@@ -110,9 +84,12 @@ var y2  = source2.data['y2']
 var x3  = source3.data['xBTC']
 var y3  = source3.data['yBTC']
 
-// Extracting slider values
+var rg_AN     = rg_AN.active                      // [0]
+var rg_CP     = rg_CP.active                      // [0]
+var rg_SType  = rg_ST.active                      // [0]
+
+// Values needed for all models
 const col_len   = col_len_sl.value;                 // [m]
-var xBTC      = x3[0];                         // [m]
 const rad       = col_rad_sl.value;                 // [m]
 const reac_l    = Math.exp(reac_sl.value[0])/3600;  // [1/s]
 const reac_h    = Math.exp(reac_sl.value[1])/3600;  // [1/s]
@@ -120,37 +97,23 @@ const disp_l    = Math.exp(disp_sl.value[0])/3600;  // [m2/s]
 const disp_h    = Math.exp(disp_sl.value[1])/3600;  // [m2/s]
 const Q         = flow_sl.value/1000/1000/3600;     // [m3/s]
 const n         = poros_sl.value;                   // [-]
-const tPV       = Math.exp(pore_vol_sl.value);      // [-]
 const t_inj     = pulse_inj_sl.value                // [s]
-const rg        = rg_CP.active                      // [false]
+var xBTC        = x3[0];                            // [m]
 
-// Initializing empty lists
-var c = []
-var cmin = []
-var cmax = []
-var cBTX = []
-var tsp = []
-
-const c0      = 1;                            // [-]
-const reac    = (reac_l + reac_h)/2           // [1/s]
-const Dis     = (disp_l + disp_h)/2           // [m2/s]
+// Derived entities
 const A       = math.PI * rad**2;             // [m2]
 const vel     = Q/A;                          // [m/s]
-const sep_vel = vel * n                       // [m/s]   
+const sep_vel = vel / n                       // [m/s]
+const reac    = (reac_l + reac_h)/2           // [1/s] 
+const Dis     = (disp_l + disp_h)/2           // [m2/s]  
 const PS      = col_len * A * n               // [m3]
-const PV      = PS / (A*vel)                  // [s] VEL oder SEP_VEL?
-const t       = tPV * PV                      // [s]
+const PV      = col_len/sep_vel               // [s] VEL oder SEP_VEL?
+const c0      = 1;                            // [-] 
 
-const gam     = Math.sqrt(1 + 4 * reac * Dis / sep_vel**2)  
+// Time span list
+var tsp = []
 
-// Fix Point draw tool to x-axis and limit to y-axis
-y3[0] = 0
-if (x3[0]<=0.005) {
-  x3[0] = 0.01
-} else if (x3[0] > col_len) {
-  x3[0] = col_len
-}
-
+// Discretize space (upper plot) and time (lower plot)
 for (let j = 0; j < x.length; j++) {
   x[j] = -0.02*col_len + 1.02*col_len/x.length * j;
 }
@@ -158,38 +121,95 @@ for (let j = 0; j < x2.length; j++) {
   tsp[j] = x2[j] * PV;
 }
 
-// This if statement has no meaning besides preventing a Type Error <-- why is that? It doesnt work without it
-if (1<2){ 
-  [c, cmin, cmax] = getc(x,sep_vel,t,Lcube1,Lcube2,reac_l,reac_h,disp_l,disp_h,t_inj,rg)
-  cBTX = getc_BTC(xBTC,sep_vel,tsp,gam,t_inj,Dis) 
+// Fix point draw tool to x-axis and limit its range on x-axis
+y3[0] = 0
+if (x3[0]<=0.001) {
+  x3[0] = 0.01
+} else if (x3[0] > col_len) {
+  x3[0] = col_len
 }
 
-    
-// We have to loop through all indicies
-for (let i = 0; i < c.length; i++) {
-  y[i] = c[i]
-  ymin[i] = cmin[i]
-  ymax[i] = cmax[i]
-}
+if (rg_AN == 0){ // Analytical model
 
-for (let i = 0; i < x.length; i++) {
-  y2[i] = cBTX[i]
-}
+  // Time for analytical model 
+  const tPV       = Math.exp(pore_vol_sl.value);      // [-]
+  const t         = tPV * PV                          // [s]
 
-// Update Sliders
-pore_vol_sl.title = 'Pore Volume (1PV =' + (PV/3600).toFixed(2) +'h)';
-xBTC_sl.end       = col_len_sl.value;
-BTCp.title.text   = 'Breakthrough Curve at x = ' + xBTC.toFixed(3) + 'm (Drag diamond in upper plot to change)'
+  const gam     = Math.sqrt(1 + 4 * reac * Dis / sep_vel**2) 
 
+  // Initializing empty lists
+  var c = []
+  var cmin = []
+  var cmax = []
+  var cBTX = []
 
-if (rg==0) {
-  pulse_inj_sl.visible = false
+  // This if statement has no meaning besides preventing a Type Error <-- why is that? It doesnt work without it
+  if (1<2){ 
+    [c, cmin, cmax] = getc(x,sep_vel,t,Lcube1,Lcube2,reac_l,reac_h,disp_l,disp_h,t_inj,rg_CP)
+    cBTX = getc_BTC(xBTC,sep_vel,tsp,gam,t_inj,Dis) 
+  }
+
+  // Update sources
+  for (let i = 0; i < c.length; i++) {
+    y[i] = c[i]
+    ymin[i] = cmin[i]
+    ymax[i] = cmax[i]
+  }
+  for (let i = 0; i < x.length; i++) {
+    y2[i] = cBTX[i]
+  }
+
+  // Update Sliders
+  pore_vol_sl.title = 'Pore Volume (1PV =' + (PV/3600).toFixed(2) +'h)';
+  BTCp.title.text   = 'Breakthrough Curve at x = ' + xBTC.toFixed(3) + 'm (Drag diamond in upper plot to change)'
+  rg_ST.visible = false
+  computebutton.visible = false
+  rho_s_sl.visible = false
+  Kd_sl.visible = false
+  Kads_sl.visible = false
+  s_max_sl.visible = false
+  K_Fr_sl.visible = false
+  Fr_n_sl.visible = false
+
+  if (rg_CP==0) {
+    pulse_inj_sl.visible = false
+  } else {
+    pulse_inj_sl.visible = true
+  }
+
 } else {
-  pulse_inj_sl.visible = true
+  // Change UI for numerical model -- Computation is preformed in different fiel
+  // Make sorption type options visible
+  rg_ST.visible = true
+  computebutton.visible = true
+  if (rg_SType == 0) {
+    rho_s_sl.visible = true
+    Kd_sl.visible = true
+    Kads_sl.visible = false
+    s_max_sl.visible = false
+    K_Fr_sl.visible = false
+    Fr_n_sl.visible = false
+  } else if (rg_SType == 1) {
+    rho_s_sl.visible = false
+    Kd_sl.visible = false
+    Kads_sl.visible = true
+    s_max_sl.visible = true
+    K_Fr_sl.visible = false
+    Fr_n_sl.visible = false
+  } else if (rg_SType == 2) {
+    rho_s_sl.visible = false
+    Kd_sl.visible = false
+    Kads_sl.visible = false
+    s_max_sl.visible = false
+    K_Fr_sl.visible = true
+    Fr_n_sl.visible = true
+  }
+  
 }
 
-console.log((xBTC-sep_vel*tsp[100]*gam)/math.sqrt(4*Dis*tsp[100]))
-console.log(tsp[100])
+
+//console.log((xBTC-sep_vel*tsp[100]*gam)/math.sqrt(4*Dis*tsp[100]))
+//console.log(tsp[100])
 //console.log(sep_vel)
 //console.log(Dis)
 
