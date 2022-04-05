@@ -1,12 +1,12 @@
-function transport_num(c,disp,dx,dt){
+function transport_num(c,c_in,disp,dx,dt){
     // This function approximates advection and dispersion numerically by a FVM
-  
+    
     // Move concentration by 1 cell
-    for (let i = 0; i < c.length-1; i++) {
-      c[i+1] = c[i]
+    for (let i = 1; i < c.length; i++) {
+      c[c.length-i] = c[c.length-i-1]
     }
     // First cell gets inlet concentration
-    c[0] = 1
+    c[0] = c_in
     var Jd = []
     // Dispersive fluxes between cells
     for (let i = 0; i < c.length+1; i++) {
@@ -24,7 +24,34 @@ function transport_num(c,disp,dx,dt){
     }
   
     return c
+}
+
+function total_conc(c,rg_SType,s,rho_s,poros,K_Fr,Fr_n) {
+  // This function sums up the concentration in the aqueous and solid phase per cell
+  var c_tot = Array(c.length).fill(0)
+  if (rg_SType == 2) {
+    for (let i = 0; i < c.length; i++) {
+      c_tot[i] = (rho_s*(1-poros)*K_Fr*c[i]**(Fr_n-1)+ poros)*c[i]
+    }
+  } else {
+    for (let i = 0; i < c.length; i++) {
+      c_tot[i] = s[i]*rho_s*(1-poros) + poros*c[i]
+    }
   }
+  
+  return c_tot
+}
+
+function zeros(dimensions) {
+  // Credit: https://newbedev.com/javascript-initialize-2d-array-with-0-code-example
+  var array = [];
+
+  for (var i = 0; i < dimensions[0]; ++i) {
+      array.push(dimensions.length == 1 ? 0 : zeros(dimensions.slice(1)));
+  }
+
+  return array;
+}
 
 // Extracting data sources
 var x   = source1.data['x'] 
@@ -47,17 +74,23 @@ const reac_h    = Math.exp(reac_sl.value[1])/3600;  // [1/s]
 const disp_l    = Math.exp(disp_sl.value[0])/3600;  // [m2/s]
 const disp_h    = Math.exp(disp_sl.value[1])/3600;  // [m2/s]
 const Q         = flow_sl.value/1000/1000/3600;     // [m3/s]
-const n         = poros_sl.value;                   // [-]
+const poros     = poros_sl.value;                   // [-]
 const t_inj     = pulse_inj_sl.value                // [s]
 var xBTC        = x3[0];                            // [m]
+const rho_s     = rho_s_sl.value                    // [kg/m3]
+const Kd        = Kd_sl.value                       // [m3/kg]
+const K_ads     = Kads_sl.value                     // [mol/m3]
+const s_max     = s_max_sl.value                    // [mol/kg]
+const K_Fr      = K_Fr_sl.value                     // [mmol^(1-n)*L^(n) / kg]
+const Fr_n      = Fr_n_sl.value                     // [-]
 
 // Derived entities
 const A       = math.PI * rad**2;             // [m2]
 const vel     = Q/A;                          // [m/s]
-const sep_vel = vel / n                       // [m/s]
+const sep_vel = vel / poros                   // [m/s]
 const reac    = (reac_l + reac_h)/2           // [1/s] 
 const Dis     = (disp_l + disp_h)/2           // [m2/s]  
-const PS      = col_len * A * n               // [m3]
+const PS      = col_len * A * poros           // [m3]
 const PV      = col_len/sep_vel               // [s] VEL oder SEP_VEL?
 const c0      = 1;                            // [-] 
 
@@ -103,24 +136,75 @@ console.log("Spatial Discretization is " + dx + " m\n"
               +"The Courant Number equals " + dt * sep_vel /dx
 )
 
-// Initialize list of concentrations
-var c_array = Array(x_num.length).fill(0)
-console.log(c_array)
+// Initialize lists
+var c_array     = Array(x_num.length).fill(0)
+var s_array     = Array(x_num.length).fill(0)
+var c_tot_array = zeros([t_num.length,x_num.length]).fill(0)
+var s_tot_array = zeros([t_num.length,x_num.length]).fill(0)
 
 
-for (let i = 0; i < t_num.length; i++) {
-    // Set inlet concentration 
-    if (rg_CP == 0) {
-        var c_in = c0
-    } else if (rg_CP == 1 && t_num[i] < t_inj) {
-        var c_in = c0
-    } else {
-        var c_in = 0
-    }
+for (let i = 0; i < 6; i++) { // needs to be t_num.length
+  // Set inlet concentration 
+  if (rg_CP == 0) {
+      var c_in = c0
+  } else if (rg_CP == 1 && t_num[i] < t_inj) {
+      var c_in = c0
+  } else {
+      var c_in = 0
+  }
 
-    // Transport by 1 cell
-    //c_array = transport_num()
+  // Transport
+  //console.log(c_array)
+  c_array = transport_num(c_array,c_in,Dis,dx,dt)
+  //console.log(c_array)
+
+  // Sorption
+  if (rg_SType == 0) { // Linear Sorption
+      var c_tot_lin = total_conc(c_array,rg_SType,s_array,rho_s,poros)
+
+      for (let j = 0; j < c_array.length; j++) {
+        c_array[j] = c_tot_lin[j]/(Kd*(1-poros)*rho_s+poros)
+        s_array[j] = c_array[j]*Kd
+      }
+
+  } else if (rg_SType == 1) { // Langmuir Sorption
+      var c_tot_lang = total_conc(c_array,rg_SType,s_array,rho_s,poros)
+
+      for (let j = 0; j < c_array.length; j++) {
+        var beta_lang  = (1-poros)*rho_s*s_max + poros*K_ads - c_tot_lang[j]
+        var gamma_lang = -c_tot_lang[j]*K_ads
+
+        c_array[j] = (-beta_lang + math.sqrt(beta_lang**2 - 4*poros*gamma_lang))/(2*poros)
+        s_array[j] = s_max*c_array[j]/(K_ads+c_array[j]) //[mol/kg]
+      }
+
+  } else if (rg_SType == 2) { // Freundlich Sorption
+      var c_tot_Fr = total_conc(c_array,rg_SType,s_array,rho_s,poros,K_Fr,Fr_n)
+      //console.log(c_array)
+      for (let j = 0; j < c_array.length; j++) {
+        // Picard Iteration: Guess that everything is in the aqueous phase
+        var c_old = c_tot_Fr[j]/poros
+        // Loop until convergence criterion is met
+        while (math.abs(c_old-c_array[j])>1e-9) {
+          c_old = c_array[j]
+          console.log(c_array[j])
+          c_array[j] = c_tot_Fr[j]/(rho_s*(1-poros)*K_Fr*c_array[j]**(Fr_n-1)+poros)
+          console.log(c_tot_Fr[j],rho_s,poros,K_Fr,Fr_n,poros)
+          console.log(c_array[j])
+        }
+        s_array[j] = K_Fr * c_array[j]**Fr_n //[mmol/kg] --> different from other sorption types
+      }
+      //console.log(c_array)
+  }
+
+  // Store results
+  for (let j = 0; j < c_array.length; j++) {
+    c_tot_array[i,j] = c_array[j]
+    s_tot_array[i,j] = s_array[j]
+  }
+  if (i==5){
+    console.log(c_array)
+  }
 }
-if (rg_SType == 0) { //Linear Sorption
 
-}
+console.log(c_tot_array[5,0],c_tot_array[5,1],c_tot_array[5,2],c_tot_array[5,3],c_tot_array[5,4])

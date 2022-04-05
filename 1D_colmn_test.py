@@ -12,6 +12,8 @@ from scipy.stats import qmc
 import os
 import sys
 
+from zmq import PUSH
+
 # Setting working sirectory to current folder
 os.chdir(os.path.dirname(sys.argv[0]))
 

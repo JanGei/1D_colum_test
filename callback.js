@@ -161,7 +161,7 @@ if (rg_AN == 0){ // Analytical model
 
   // Update Sliders
   pore_vol_sl.title = 'Pore Volume (1PV =' + (PV/3600).toFixed(2) +'h)';
-  BTCp.title.text   = 'Breakthrough Curve at x = ' + xBTC.toFixed(3) + 'm (Drag diamond in upper plot to change)'
+  BTCp.title.text   = 'Breakthrough Curve at x = ' + xBTC.toFixed(3) + ' m (Drag diamond in upper plot to change)'
   rg_ST.visible = false
   computebutton.visible = false
   rho_s_sl.visible = false
