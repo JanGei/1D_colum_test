@@ -206,6 +206,7 @@ rg_AN = RadioButtonGroup(labels = Labels1, active = 0)
 rg_CP = RadioButtonGroup(labels = Labels2, active = 0)
 rg_ST = RadioButtonGroup(labels = Labels3, active = 0)
 
+computebutton = Button(label="Compute Numerical Model", button_type="success",sizing_mode="stretch_width")
 
 with open ('callback_compute_numerical.js', 'r') as file2:
   cbCode_numerical = file2.read()
@@ -229,11 +230,11 @@ callback_compute_numerical = CustomJS(args=dict(
                             rg_CP = rg_CP,
                             rg_ST = rg_ST,
                             pulse_inj_sl = pulse_inj_sl,
-                            BTCp = BTCp
+                            BTCp = BTCp,
+                            computebutton = computebutton
                             ),
     code=cbCode_numerical)
 
-computebutton = Button(label="Compute Numerical Model", button_type="success",sizing_mode="stretch_width")
 computebutton.js_on_click(callback_compute_numerical)
 
 with open ('callback.js', 'r') as file1:
