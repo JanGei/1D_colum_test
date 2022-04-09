@@ -1,38 +1,39 @@
-function transport_num_CN(c_arr,Disp, sep_vel, dx_CN, dt_CN, nX, c_in, A_cn, b_cn){
+function transport_num_CN(c_arr,Disp, sep_vel, dx_CN, dt_CN, nX, c_in, A_cn, b_cn, k){
   // Coefficients
   var p1 = Disp*dt_CN/dx_CN**2
   var p2 = sep_vel*dt_CN/(4*dx_CN)
   var p3 = sep_vel*dx_CN/Disp
+  // First order reaction coefficient
+  var p4 = k * dt_CN / 2
 
   for (let i = 0; i < nX; i++) {
     // Left hand side matrix A_CN
     if (i > 0 && i < nX-1) { // internal cells
       A_cn[i][i-1]  = -p1/2-p2
-      A_cn[i][i]    = 1+p1
+      A_cn[i][i]    = 1+p1+p4
       A_cn[i][i+1]  = -p1/2+p2
-    } else if (i == 0) { // inflow cell
-      A_cn[i][i]    = p1*p3 + 2*p2*p3 + 1 + p1
+    } else if (i == 0) { // inflow cell 
+      A_cn[i][i]    = p1*p3 + 2*p2*p3 + 1 + p1 +p4
       A_cn[i][i+1]  = -p1
     } else if (i == nX-1) { // outflow cell
       A_cn[i][i-1]  = -p1 - p1*p3 - 2*p2*p3
-      A_cn[i][i]    = 1 + p1 + p1*p3 - 2*p2*p3
+      A_cn[i][i]    = 1 + p1 + p1*p3 - 2*p2*p3 + p4
     }
     // Right hand side vector --> produces NaNs atm after 4 entries
     if (i > 0 && i < nX-1 && 1==1) { // internal cells
-      b_cn[i]   = (p1/2+p2)*c_arr[i-1] + (1-p1)*c_arr[i] + (p1/2-p2)*c_arr[i+1]
+      b_cn[i]   = (p1/2+p2)*c_arr[i-1] + (1-p1-p4)*c_arr[i] + (p1/2-p2)*c_arr[i+1]
     } else if (i == 0) { // inflow cell
-      b_cn[i]    = (-p1*p3 - 2*p2*p3 + 1 - p1)*c_arr[i] + p1*c_arr[i+1] + 2*(p1*p3 + 2*p2*p3)* c_in
+      b_cn[i]    = (-p1*p3 - 2*p2*p3 + 1 - p1 - p4)*c_arr[i] + p1*c_arr[i+1] + 2*(p1*p3 + 2*p2*p3)* c_in
     } else if (i == nX-1) { // outflow cell
-      b_cn[i]    = (p1 + p1*p3 - 2*p2*p3)*c_arr[i-1] + (1 - p1 - p1*p3 + 2*p2*p3) *c_arr[i]
+      b_cn[i]    = (p1 + p1*p3 - 2*p2*p3)*c_arr[i-1] + (1 - p1 - p1*p3 + 2*p2*p3 - p4) *c_arr[i]
     }
   }
   const res = math.lusolve(A_cn,b_cn)
   return res
-
 }
 
 function total_conc(c,rg_SType,sorbed,rho_s,poros,K_Fr,Fr_n) {
-  // This function sums up the concentration in the aqueous and solid phase per cell
+  // This function sums up the concentration in the aqueous and solid phase per node
   var c_tot = Array(c.length).fill(0)
   if (rg_SType == 2) {
     for (let i = 0; i < c.length; i++) {
@@ -90,18 +91,7 @@ const nX      = x.length                      // [-]
 const dx_CN   = col_len/nX                    // [m]
 const dt_CN   = dx_CN / sep_vel               // [s]
 const t_end   = PV * (x2[x2.length-1])        // [s]
-const nT      = t_end/dt_CN                   // [-]
-
-// Time span list
-var tsp = []
-
-// Discretize space (upper plot) and time (lower plot)
-for (let j = 0; j < x.length; j++) {
-  x[j] = -0.02*col_len + 1.02*col_len/x.length * j;
-}
-for (let j = 0; j < x2.length; j++) {
-  tsp[j] = x2[j] * PV;
-}
+const nT      = math.floor(t_end/dt_CN)       // [-]
 
 // Initialize lists
 var c_array     = Array(nX).fill(0)
@@ -116,26 +106,26 @@ for (let i = 0; i < nT; i++) {
 var A_CN        = Array(nX).fill(0)
 var B_CN        = Array(nX).fill(0)
 for (let i = 0; i < nX; i++) {
-  A_CN[i] = new Array(nX).fill(0)
+  A_CN[i]     = new Array(nX).fill(0)
 }
 
 
 console.log("Crank - Nicholson: \n"
               +"Spatial Discretization is " + dx_CN + " m\n"
               +"Temporal Discretization is " + dt_CN + " s\n" 
-              +"Seepage velocity is "+ sep_vel + "m/s\n"
-              +"Dispersion Coefficient is "+ Dis + "m2/s\n"
+              +"Seepage velocity is "+ sep_vel + " m/s\n"
+              +"Dispersion Coefficient is "+ Dis + " m2/s\n"
               +"There are " + nX + " spatial nodes\n"
               +"There are " + t_end/dt_CN + " temporal nodes\n"
               +"The Courant Number equals " + dt_CN * sep_vel /dx_CN
   )
 
 
-for (let i = 0; i < nT; i++) {  //needs to be nT
+for (let i = 0; i < 50; i++) {  //needs to be nT
   // Set inlet concentration 
   if (rg_CP == 0) {
       var c_in = c0
-  } else if (rg_CP == 1 && t_num[i] < t_inj) {
+  } else if (rg_CP == 1 && i*dt_CN < t_inj) {
       var c_in = c0
   } else {
       var c_in = 0
@@ -143,16 +133,15 @@ for (let i = 0; i < nT; i++) {  //needs to be nT
 
   // Transport
   // Transport with Crank Nicholson scheme
-  var c_array = transport_num_CN(c_array,Dis,sep_vel,dx_CN,dt_CN,nX,c_in,A_CN,B_CN)
+  var c_array = transport_num_CN(c_array,Dis,sep_vel,dx_CN,dt_CN,nX,c_in,A_CN,B_CN,reac)
 
   // Sorption
-  if (1 ==2) {
+  if (1 == 1) {
   if (rg_SType == 0) { // Linear Sorption
       var c_tot_lin = total_conc(c_array,rg_SType,s_array,rho_s,poros)
-      
       for (let j = 0; j < c_array.length; j++) {
-        c_array[j] = c_tot_lin[j]/(Kd*(1-poros)*rho_s+poros)
-        s_array[j] = c_array[j]*Kd
+        c_array[j][0] = c_tot_lin[j]/(Kd*(1-poros)*rho_s+poros)
+        s_array[j]    = c_array[j][0]*Kd
       }
 
   } else if (rg_SType == 1) { // Langmuir Sorption
@@ -162,8 +151,8 @@ for (let i = 0; i < nT; i++) {  //needs to be nT
         var beta_lang  = (1-poros)*rho_s*s_max + poros*K_ads - c_tot_lang[j]
         var gamma_lang = -c_tot_lang[j]*K_ads
 
-        c_array[j] = (-beta_lang + math.sqrt(beta_lang**2 - 4*poros*gamma_lang))/(2*poros)
-        s_array[j] = s_max*c_array[j]/(K_ads+c_array[j]) //[mol/kg]
+        c_array[j][0] = (-beta_lang + math.sqrt(beta_lang**2 - 4*poros*gamma_lang))/(2*poros)
+        s_array[j]    = s_max*c_array[j]/(K_ads+c_array[j][0]) //[mol/kg]
       }
 
   } else if (rg_SType == 2) { // Freundlich Sorption
@@ -174,8 +163,8 @@ for (let i = 0; i < nT; i++) {  //needs to be nT
         var c_old = c_tot_Fr[j]/poros
         // Loop until convergence criterion is met
         while (math.abs(c_old-c_array[j])>1e-9) {
-          c_old = c_array[j]
-          c_array[j] = c_tot_Fr[j]/(rho_s*(1-poros)*K_Fr*c_array[j]**(Fr_n-1)+poros)
+          c_old = c_array[j][0]
+          c_array[j][0] = c_tot_Fr[j]/(rho_s*(1-poros)*K_Fr*c_array[j][0]**(Fr_n-1)+poros)
         }
         s_array[j] = K_Fr * c_array[j]**Fr_n //[mmol/kg] --> different from other sorption types
       }
@@ -183,10 +172,10 @@ for (let i = 0; i < nT; i++) {  //needs to be nT
 
   // Store results
   for (let j = 0; j < c_array.length; j++) {
-    c_tot_array[i][j] = c_array[j][0]
-    s_tot_array[i][j] = s_array[j][0]
+    c_tot_array[i][j] = c_array[j][0] 
+    s_tot_array[i][j] = s_array[j]
   }
 }
 
-
 console.log(c_tot_array)
+

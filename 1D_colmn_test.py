@@ -289,8 +289,8 @@ rg_ST.js_on_change('active',callback)
 COLp.js_on_event(Tap, callback)
 COLp.js_on_event(Pan, callback)
 
-layout1 = column(rg_AN,rg_CP,pore_vol_sl,col_len_sl,col_rad_sl,reac_sl,disp_sl,flow_sl,poros_sl,pulse_inj_sl, savebutton1, savebutton2,sizing_mode="stretch_width")
-layout2 = column(rg_ST,rho_s_sl,Kd_sl,Kads_sl,s_max_sl,K_Fr_sl,Fr_n_sl,computebutton, sizing_mode="stretch_width")
+layout1 = column(rg_AN,rg_CP,pore_vol_sl,col_len_sl,col_rad_sl,reac_sl,disp_sl,flow_sl,poros_sl,pulse_inj_sl,sizing_mode="stretch_width")
+layout2 = column(rg_ST,rho_s_sl,Kd_sl,Kads_sl,s_max_sl,K_Fr_sl,Fr_n_sl,computebutton, savebutton1, savebutton2, sizing_mode="stretch_width")
 
 pulse_inj_sl.visible = False
 rho_s_sl.visible = False
@@ -328,16 +328,3 @@ filedata = filedata.replace('+placeholder4+', div4)
 # write to html file
 with open('index.html', 'w') as file:
   file.write(filedata)
-
-print(3*disp_ini / (velocity_ini**2))
-print(disp_ini)
-print(velocity_ini)
-
-
-
-# These are identical
-#print(xBTC_ini)
-#print(velocity_ini)
-#print(disp_ini)
-#print(gam_m)
-#print(porevolume*PVspan[100])
