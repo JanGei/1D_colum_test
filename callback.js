@@ -1,4 +1,4 @@
-function getc(x,vel,t,Lcube1,Lcube2,reac_l,reac_h,disp_l,disp_h,t_inj,rg) {
+function getc(x,vel,t,Lcube1,Lcube2,reac_l,reac_h,disp_l,disp_h,t_inj,rg_CP) {
   var c = []
   var cmin = []
   var cmax = []
@@ -8,17 +8,24 @@ function getc(x,vel,t,Lcube1,Lcube2,reac_l,reac_h,disp_l,disp_h,t_inj,rg) {
   var gam_mean = get_gamma(r_mean,D_mean,vel)
   for (let i = 0; i < x.length; i++) { 
       if (x[i] <= 0) {
-        c[i] = 1
-        cmin[i] = 1
-        cmax[i] = 1
+        if (rg_CP == 1 && t > t_inj) {
+          c[i] = 0
+          cmin[i] = 0
+          cmax[i] = 0
+        } else {
+          c[i] = 1
+          cmin[i] = 1
+          cmax[i] = 1
+        }
+        
       } else {
         var intlist = []
           for (let j = 0; j < Lcube1.length; j++) {
             var r_intermed = reac_l + (reac_h-reac_l)*Lcube1[j]
             var D_intermed = disp_l + (disp_h-disp_l)*Lcube2[j]
             var H_intermed = 2*r_intermed*D_intermed/sep_vel**2
-            var gam_intermed = get_gamma(r_intermed,D_intermed,vel)
-            if (rg == 1) {
+            //var gam_intermed = get_gamma(r_intermed,D_intermed,vel)
+            if (rg_CP == 1) {
               // Pulse injection
               if (t<=t_inj) {
                 //intlist[j] = 1/2 * (1-math.erf((x[i]-vel*t) / math.sqrt(4*D_intermed*t)))
@@ -37,7 +44,7 @@ function getc(x,vel,t,Lcube1,Lcube2,reac_l,reac_h,disp_l,disp_h,t_inj,rg) {
             }
           }
         // Main line with mean values of dispersion and reaction
-        if (rg==1){
+        if (rg_CP==1){
           // Pulse injection
           if (t<=t_inj) {
             //c[i] = 1/2 * (1-math.erf((x[i]-vel*t) / math.sqrt(4*D_mean*t)))
@@ -104,7 +111,6 @@ var y2  = source2.data['y2']
 var x3  = source3.data['xBTC']
 var y3  = source3.data['yBTC']
 
-var rg_AN     = rg_AN.active                      // [0]
 var rg_CP     = rg_CP.active                      // [0]
 var rg_SType  = rg_ST.active                      // [0]
 
@@ -150,83 +156,49 @@ if (x3[0]<=0.001) {
   x3[0] = col_len
 }
 
-if (rg_AN == 0){ // Analytical model
+// Time 
+const tPV       = Math.exp(pore_vol_sl.value);      // [-]
+const t         = tPV * PV                          // [s]
 
-  // Time for analytical model 
-  const tPV       = Math.exp(pore_vol_sl.value);      // [-]
-  const t         = tPV * PV                          // [s]
+const gam     = Math.sqrt(1 + 4 * r_mean * D_mean / sep_vel**2) 
 
-  const gam     = Math.sqrt(1 + 4 * r_mean * D_mean / sep_vel**2) 
+// Initializing empty lists
+var c = []
+var cmin = []
+var cmax = []
+var cBTX = []
 
-  // Initializing empty lists
-  var c = []
-  var cmin = []
-  var cmax = []
-  var cBTX = []
-
-  // This if statement has no meaning besides preventing a Type Error <-- why is that? It doesnt work without it
-  if (1<2){ 
-    [c, cmin, cmax] = getc(x,sep_vel,t,Lcube1,Lcube2,reac_l,reac_h,disp_l,disp_h,t_inj,rg_CP)
-    cBTX = getc_BTC(xBTC,sep_vel,tsp,gam,t_inj,D_mean,r_mean,H_mean) 
-  }
-
-  // Update sources
-  for (let i = 0; i < c.length; i++) {
-    y[i] = c[i]
-    ymin[i] = cmin[i]
-    ymax[i] = cmax[i]
-  }
-  for (let i = 0; i < x.length; i++) {
-    y2[i] = cBTX[i]
-  }
-
-  // Update Sliders
-  pore_vol_sl.title = 'Pore Volume (1PV =' + (PV/3600).toFixed(2) +'h)';
-  BTCp.title.text   = 'Breakthrough Curve at x = ' + xBTC.toFixed(3) + ' m (Drag diamond in upper plot to change)'
-} 
-
-if (rg_AN == 0) {
-  rg_ST.visible = false
-  computebutton.visible = false
-  rho_s_sl.visible = false
-  Kd_sl.visible = false
-  Kads_sl.visible = false
-  s_max_sl.visible = false
-  K_Fr_sl.visible = false
-  Fr_n_sl.visible = false
-} else {
-  // Change UI for numerical model -- Computation is preformed in different fiel
-  // Make sorption type options visible
-  rg_ST.visible = true
-  computebutton.visible = true
-  if (rg_SType == 0) {
-    rho_s_sl.visible = true
-    Kd_sl.visible = true
-    Kads_sl.visible = false
-    s_max_sl.visible = false
-    K_Fr_sl.visible = false
-    Fr_n_sl.visible = false
-  } else if (rg_SType == 1) {
-    rho_s_sl.visible = false
-    Kd_sl.visible = false
-    Kads_sl.visible = true
-    s_max_sl.visible = true
-    K_Fr_sl.visible = false
-    Fr_n_sl.visible = false
-  } else if (rg_SType == 2) {
-    rho_s_sl.visible = false
-    Kd_sl.visible = false
-    Kads_sl.visible = false
-    s_max_sl.visible = false
-    K_Fr_sl.visible = true
-    Fr_n_sl.visible = true
-  }
+// This if statement has no meaning besides preventing a Type Error <-- why is that? It doesnt work without it
+if (1<2){ 
+  [c, cmin, cmax] = getc(x,sep_vel,t,Lcube1,Lcube2,reac_l,reac_h,disp_l,disp_h,t_inj,rg_CP)
+  cBTX = getc_BTC(xBTC,sep_vel,tsp,gam,t_inj,D_mean,r_mean,H_mean) 
 }
+
+// Update sources
+for (let i = 0; i < c.length; i++) {
+  y[i] = c[i]
+  ymin[i] = cmin[i]
+  ymax[i] = cmax[i]
+}
+for (let i = 0; i < x.length; i++) {
+  y2[i] = cBTX[i]
+}
+
+// Update Sliders
+pore_vol_sl.title = 'Pore Volume (1PV =' + (PV/3600).toFixed(2) +'h)';
+BTCp.title.text   = 'Breakthrough Curve at x = ' + xBTC.toFixed(3) + ' m (Drag diamond in upper plot to change)'
 
 if (rg_CP==0) {
   pulse_inj_sl.visible = false
 } else {
   pulse_inj_sl.visible = true
+}
+if (rg_SType == 1) {
+  rho_s_sl.visible = true
+  Kd_sl.visible = true
+} else {
+  rho_s_sl.visible = false
+  Kd_sl.visible = false
 }
 
 source1.change.emit();

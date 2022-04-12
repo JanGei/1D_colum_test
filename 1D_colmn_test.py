@@ -12,8 +12,6 @@ from scipy.stats import qmc
 import os
 import sys
 
-from zmq import PUSH
-
 # Setting working sirectory to current folder
 os.chdir(os.path.dirname(sys.argv[0]))
 
@@ -26,14 +24,18 @@ def getc_cont(x,c,vel,t,L1,L2,reac_l,reac_h,disp_l,disp_h):
   for j in range(len(L1)):
     r_intermed = reac_l + (reac_h-reac_l)*L1[j]
     D_intermed = disp_l + (disp_h-disp_l)*L2[j]
-    gam_intermed = get_gamma(r_intermed,D_intermed,vel)
+    H_intermed = 2*r_intermed*D_intermed/vel**2
+    #gam_intermed = get_gamma(r_intermed,D_intermed,vel)
 
     for i in range(len(x)):
 
       if x[i] <= 0:
         c[j,i] = 1
       else: 
-        c[j,i] = 1/2 * exp(x[i]*vel/(2*D_intermed))*(exp(-x[i]*vel*gam_intermed/(2*D_intermed))*erfc((x[i]-vel*t*gam_intermed)/sqrt(4*D_intermed*t))+exp(x[i]*vel*gam_intermed/(2*D_intermed))*erfc((x[i]+vel*t*gam_intermed)/sqrt(4*D_intermed*t)))
+        # 8.66 from Hydro-Skript (Ogata-Banks)
+        # c[j,i] = 1/2 * exp(x[i]*vel/(2*D_intermed))*(exp(-x[i]*vel*gam_intermed/(2*D_intermed))*erfc((x[i]-vel*t*gam_intermed)/sqrt(4*D_intermed*t))+exp(x[i]*vel*gam_intermed/(2*D_intermed))*erfc((x[i]+vel*t*gam_intermed)/sqrt(4*D_intermed*t)))
+        # Eq (8) from Runkler 1996
+        c[j,i] = 1/2 * exp(-r_intermed*x[i]/vel) * erfc((x[i]- vel*t*(1+H_intermed))/(2*sqrt(D_intermed*t)))
   
   return c
 
@@ -50,20 +52,10 @@ poros     = [0.01, 1, 0.01, 0.5]
 puls_inj  = [30, 43200, 30, 18000]
 # Column length [m]
 col_len   = [0.01, 0.5, 0.001, 0.2]
-
-# Initial slider parameter (min, max, step, value) for numerical model
 # Solid densitiy [kg/m3]
 rho_s     = [2000, 3000, 1, 2650]
 # Linear partitioning coefficient [m3/kg]
 Kd        = [5e-5, 5e-3, 5e-5, 2e-3]
-# Half saturation concentration [mol/m3]
-K_ads     = [0.01, 10, 0.01, 1]
-# Specific sorption capacity [mol/kg]
-s_max     = [0.0001, 1, 0.0001, 0.1]
-# Freundlich Sorption Parameter [mmol^(1-n)*L^(n) / kg]
-K_Fr      = [0.01, 10, 0.01, 1]
-# Frfeundlich n [-]
-Fr_n      = [1, 2, 0.01, 1.3]
 
 # number of nodes in the domain
 num_n = 200
@@ -154,7 +146,7 @@ BTCcircle = COLp.diamond(x='xBTC',y = 'yBTC', source=source3 , size=18, color = 
 COLp.add_tools(PointDrawTool(renderers=[BTCcircle], num_objects = 1))
 COLp.toolbar.active_multi = COLp.select_one(PointDrawTool)
 
-# BTC plot -- Now consistent with JS side
+# BTC plot
 BTCp = Figure(min_height = 400, y_axis_label='c(t)/c0',
             x_axis_label='Pore Volume',sizing_mode="stretch_both")
 BTCp.line('x2', 'y2', source = source2, line_width = 3, line_alpha = 0.6, line_color = 'red')
@@ -184,58 +176,17 @@ flow_sl       = Slider(title = "Flow Rate", start = flow[0], end = flow[1], step
                     format=FuncTickFormatter(code="""return tick.toFixed(1)+' [mL/h]'"""),sizing_mode="stretch_width")
 poros_sl      = Slider(title = "Porosity", start = poros[0], end = poros[1], step = poros[2], value = poros[3],
                     format=FuncTickFormatter(code="""return tick.toFixed(2)+' [-]'"""),sizing_mode="stretch_width")
-# sliders for numerical model
+# sliders for linear sorption 
 rho_s_sl      = Slider(title = "Solid Density", start = rho_s[0], end = rho_s[1], step = rho_s[2], value = rho_s[3],
                     format=FuncTickFormatter(code="""return (tick/1000).toFixed(2)+' [kg/L]'"""),sizing_mode="stretch_width")
 Kd_sl         = Slider(title = "Linear Partinioning Coefficient", start = Kd[0], end = Kd[1], step = Kd[2], value = Kd[3],
                     format=FuncTickFormatter(code="""return (tick*1000).toFixed(2)+' [L/kg]'"""),sizing_mode="stretch_width")
-Kads_sl       = Slider(title = "Half Saturation Concentration", start = K_ads[0], end = K_ads[1], step = K_ads[2], value = K_ads[3],
-                    format=FuncTickFormatter(code="""return (tick).toFixed(2)+' [mmol/L]'"""),sizing_mode="stretch_width")
-s_max_sl      = Slider(title = "Specific Sorption Capacity", start = s_max[0], end = s_max[1], step = s_max[2], value = s_max[3],
-                    format=FuncTickFormatter(code="""return (tick*1000).toFixed(1)+' [mmol/L]'"""),sizing_mode="stretch_width")
-K_Fr_sl       = Slider(title = "Freundlich Sorption Parameter", start = K_Fr[0], end = K_Fr[1], step = K_Fr[2], value = K_Fr[3],
-                    format=FuncTickFormatter(code="""return tick.toFixed(2)+' [mmol^(1-n)*L^(n) / kg]'"""),sizing_mode="stretch_width")
-Fr_n_sl       = Slider(title = "Freundlich n", start = Fr_n[0], end = Fr_n[1], step = Fr_n[2], value = Fr_n[3],
-                    format=FuncTickFormatter(code="""return tick.toFixed(2)+' [L/kg]'"""),sizing_mode="stretch_width")
 
-Labels1 = ["Analytical Model", "Numerical Model"]
-Labels2 = ["Continuous Injection", "Pulse Injection"]
-Labels3 = ["Linear Sorption", "Langmuir Sorption", "Freundlich Sorption"]
+Labels1 = ["Continuous Injection", "Pulse Injection"]
+Labels2 = ["No Sorption","Linear Sorption"]
 
-rg_AN = RadioButtonGroup(labels = Labels1, active = 0)
-rg_CP = RadioButtonGroup(labels = Labels2, active = 0)
-rg_ST = RadioButtonGroup(labels = Labels3, active = 0)
-
-computebutton = Button(label="Compute Numerical Model", button_type="success",sizing_mode="stretch_width")
-
-with open ('callback_compute_numerical.js', 'r') as file2:
-  cbCode_numerical = file2.read()
-callback_compute_numerical = CustomJS(args=dict(
-                            source1=source1,
-                            source2 = source2,
-                            source3 = source3,
-                            pore_vol_sl = pore_vol_sl,
-                            col_len_sl = col_len_sl,
-                            reac_sl = reac_sl,
-                            disp_sl = disp_sl,
-                            col_rad_sl = col_rad_sl,
-                            flow_sl = flow_sl,
-                            poros_sl = poros_sl,
-                            rho_s_sl = rho_s_sl,
-                            Kd_sl = Kd_sl,
-                            Kads_sl = Kads_sl,
-                            s_max_sl = s_max_sl,
-                            K_Fr_sl = K_Fr_sl,
-                            Fr_n_sl = Fr_n_sl,
-                            rg_CP = rg_CP,
-                            rg_ST = rg_ST,
-                            pulse_inj_sl = pulse_inj_sl,
-                            BTCp = BTCp,
-                            computebutton = computebutton
-                            ),
-    code=cbCode_numerical)
-
-computebutton.js_on_click(callback_compute_numerical)
+rg_CP = RadioButtonGroup(labels = Labels1, active = 0)
+rg_ST = RadioButtonGroup(labels = Labels2, active = 0)
 
 with open ('callback.js', 'r') as file1:
   cbCode = file1.read()
@@ -254,16 +205,10 @@ callback = CustomJS(args=dict(
                             poros_sl = poros_sl,
                             rho_s_sl = rho_s_sl,
                             Kd_sl = Kd_sl,
-                            Kads_sl = Kads_sl,
-                            s_max_sl = s_max_sl,
-                            K_Fr_sl = K_Fr_sl,
-                            Fr_n_sl = Fr_n_sl,
                             rg_CP = rg_CP,
-                            rg_AN = rg_AN,
                             rg_ST = rg_ST,
                             pulse_inj_sl = pulse_inj_sl,
                             BTCp = BTCp,
-                            computebutton = computebutton
                             ),
     code=cbCode)
 
@@ -283,24 +228,16 @@ flow_sl.js_on_change('value', callback)
 poros_sl.js_on_change('value', callback)
 pulse_inj_sl.js_on_change('value', callback)
 rg_CP.js_on_change('active',callback)
-rg_AN.js_on_change('active',callback)
 rg_ST.js_on_change('active',callback)
-# Make a button that needs to be pressed in order to compute numerical model?
 COLp.js_on_event(Tap, callback)
 COLp.js_on_event(Pan, callback)
 
-layout1 = column(rg_AN,rg_CP,pore_vol_sl,col_len_sl,col_rad_sl,reac_sl,disp_sl,flow_sl,poros_sl,pulse_inj_sl,sizing_mode="stretch_width")
-layout2 = column(rg_ST,rho_s_sl,Kd_sl,Kads_sl,s_max_sl,K_Fr_sl,Fr_n_sl,computebutton, savebutton1, savebutton2, sizing_mode="stretch_width")
+layout1 = column(rg_CP,rg_ST,pore_vol_sl,col_len_sl,col_rad_sl,reac_sl,disp_sl,flow_sl,poros_sl,pulse_inj_sl,rho_s_sl,Kd_sl,sizing_mode="stretch_width")
+layout2 = column(savebutton1, savebutton2, sizing_mode="stretch_width")
 
 pulse_inj_sl.visible = False
 rho_s_sl.visible = False
 Kd_sl.visible = False
-rg_ST.visible = False
-computebutton.visible = False
-Kads_sl.visible = False
-s_max_sl.visible = False
-K_Fr_sl.visible = False
-Fr_n_sl.visible = False
 
 tab1 = Panel(child=COLp, title="ADRE")
 plots = Tabs(tabs=[tab1])
