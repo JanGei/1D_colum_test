@@ -1,7 +1,7 @@
 from cmath import nan
 from logging import PlaceHolder
 from bokeh.layouts import column, row
-from bokeh.models import ColumnDataSource,FuncTickFormatter, CustomJS, Slider, Panel, Range1d, Tabs, Button, RangeSlider, RadioButtonGroup, PointDrawTool
+from bokeh.models import ColumnDataSource,FuncTickFormatter, Select, CustomJS, Slider, Panel, Range1d, Tabs, Button, RangeSlider, RadioButtonGroup, PointDrawTool
 from bokeh.plotting import Figure, output_file, show
 from bokeh.events import Tap, Pan
 import numpy as np
@@ -106,6 +106,8 @@ c      = np.zeros((len(Lcube1),len(x)))
 c_mean = np.empty((1,len(x)))
 c_min  = np.empty((len(x)))
 c_max  = np.empty((len(x)))
+c_loQ  = np.empty((len(x)))
+c_upQ  = np.empty((len(x)))
 # Concnetration list for breakthrough curve
 c_t = np.empty((len(PVspan)))
 
@@ -116,6 +118,8 @@ c_mean = getc_cont(x,c_mean,velocity_ini,time_ini,[0.5],[0.5],exp(reac[3])/3600,
 for j in range(len(x)):
   c_min[j] = np.min(c1[:,j])
   c_max[j] = np.max(c1[:,j])
+  c_loQ[j] = np.quantile(c1[:,j],0.25)
+  c_upQ[j] = np.quantile(c1[:,j],0.75)
 
 # Gamma coefficient needed for BTC
 gam_m = get_gamma(reac_ini,disp_ini,velocity_ini)
@@ -125,16 +129,40 @@ for j in range(len(PVspan)):
   c_t[j] = c0/2 * exp(xBTC_ini*velocity_ini/(2*disp_ini))*(exp(-xBTC_ini*velocity_ini*gam_m/(2*disp_ini))*erfc((xBTC_ini-velocity_ini*PVspan[j]*porevolume*gam_m)/sqrt(4*disp_ini*PVspan[j]*porevolume))+exp(xBTC_ini*velocity_ini*gam_m/(2*disp_ini))*erfc((xBTC_ini+velocity_ini*PVspan[j]*porevolume*gam_m)/sqrt(4*disp_ini*PVspan[j]*porevolume)))
 
 # Defining data sources with dictionary
-source1 = ColumnDataSource(data = dict(x=x, y=c_mean[0], ymin = c_min, ymax = c_max))
+source1 = ColumnDataSource(data = dict(x=x, y=c_mean[0], ymin = c_min, ymax = c_max, yloQ = c_loQ, yupQ = c_upQ))
 source2 = ColumnDataSource(data = dict(x2=PVspan, y2=c_t))
 source3 = ColumnDataSource(data = dict(xBTC = [col_len[3]/2], yBTC = [0]))
+
+# widgets for unit selection
+r_us = Select(title="Reaction Unit:", value="1/h", options=["1/s", "1/min", "1/h", "1/d"])
+D_us = Select(title="Dispersion Unit:", value="m2/h", options=["m2/s", "m2/min", "m2/h", "m2/d"])
+fl_us = Select(title="Flow Rate Unit:", value="mL/h", options=["mL/min", "m3/s", "mL/h", "L/h"])
+
+r_us_dict = { '1/s':    FuncTickFormatter(code="""  return (Math.exp(tick)/3600).toExponential(2).toString()+' [1/s]'"""),
+              '1/min':  FuncTickFormatter(code="""  return (Math.exp(tick)/60).toExponential(2).toString()+' [1/min]'"""),
+              '1/h':    FuncTickFormatter(code="""  return (Math.exp(tick)).toExponential(2).toString()+' [1/h]'"""),
+              '1/d':    FuncTickFormatter(code="""  return (Math.exp(tick)*24).toExponential(2).toString()+' [1/d]'""")}
+
+D_us_dict = { 'm2/s':    FuncTickFormatter(code="""  return (Math.exp(tick)/3600).toExponential(2).toString()+' [m2/s]'"""),
+              'm2/min':  FuncTickFormatter(code="""  return (Math.exp(tick)/60).toExponential(2).toString()+' [m2/min]'"""),
+              'm2/h':    FuncTickFormatter(code="""  return (Math.exp(tick)).toExponential(2).toString()+' [m2/h]'"""),
+              'm2/d':    FuncTickFormatter(code="""  return (Math.exp(tick)*24).toExponential(2).toString()+' [m2/d]'""")}              
+
+fl_us_dict = {'m3/s':     FuncTickFormatter(code="""  return (tick/3600/1000/1000).toExponential(2)+' [m3/s]'"""),
+              'L/h':      FuncTickFormatter(code="""  return (tick/1000).toFixed(4)+' [L/h]'"""),
+              'mL/min':   FuncTickFormatter(code="""  return (tick/60).toFixed(2)+' [mL/min]'"""),
+              'mL/h':     FuncTickFormatter(code="""  return (tick).toFixed(1)+' [mL/h]'""")}
 
 # Concentrtation Plot
 COLp = Figure(min_height = 400, y_axis_label='c(t)/c0',
             x_axis_label='x [m]',sizing_mode="stretch_both")
 COLp.line('x', 'y', source = source1, line_width = 3, line_alpha = 0.6, line_color = 'red')
-COLp.line('x', 'ymin', source = source1, line_width = 3, line_alpha = 0.6, line_color = 'black', line_dash = 'dashed')
-COLp.line('x', 'ymax', source = source1, line_width = 3, line_alpha = 0.6, line_color = 'black', line_dash = 'dashed')
+COLp.line('x', 'yloQ', source = source1, line_width = 3, line_alpha = 0.6, line_color = 'black', line_dash = 'dashed', legend_label = 'lower / upper Quartile')
+COLp.line('x', 'yupQ', source = source1, line_width = 3, line_alpha = 0.6, line_color = 'black', line_dash = 'dashed')
+COLp.line('x', 'ymin', source = source1, line_width = 3, line_alpha = 0.6, line_color = 'grey', line_dash = 'dashed', legend_label = 'Minimum / Maximum')
+COLp.line('x', 'ymax', source = source1, line_width = 3, line_alpha = 0.6, line_color = 'grey', line_dash = 'dashed')
+COLp.legend.location = "top_right"
+#COLp.legend.click_policy = "hide" #this messes with the pointdrawtool
 COLp.y_range = Range1d(-0.03, 1.05)
 COLp.xaxis.axis_label_text_font_size = "17pt"
 COLp.yaxis.axis_label_text_font_size = "17pt"
@@ -169,11 +197,11 @@ col_len_sl    = Slider(title = "Column length", start = col_len[0], end = col_le
 col_rad_sl    = Slider(title = "Column radius", start = col_rad[0], end = col_rad[1], step = col_rad[2], value = col_rad[3],
                     format=FuncTickFormatter(code="""return tick.toFixed(3)+' [m]'"""),sizing_mode="stretch_width")
 disp_sl       = RangeSlider(title = "Dispersion coefficient ", start = disp[0], end = disp[1], step = disp[2], value =(disp[3], disp[4]),
-                    format=FuncTickFormatter(code="""return Math.exp(tick).toExponential(1).toString()+' [m2/h]'"""),sizing_mode="stretch_width")
+                    format=D_us_dict['m2/h'],sizing_mode="stretch_width")
 reac_sl       = RangeSlider(title = "Reaction coefficient ", start = reac[0], end = reac[1], step = reac[2], value = (reac[3], reac[4]),
-                    format=FuncTickFormatter(code="""return Math.exp(tick).toExponential(1).toString()+' [1/h]'"""),sizing_mode="stretch_width")
+                    format=r_us_dict['1/h'],sizing_mode="stretch_width")
 flow_sl       = Slider(title = "Flow Rate", start = flow[0], end = flow[1], step = flow[2], value = flow[3],
-                    format=FuncTickFormatter(code="""return tick.toFixed(1)+' [mL/h]'"""),sizing_mode="stretch_width")
+                    format=fl_us_dict['mL/h'] ,sizing_mode="stretch_width")
 poros_sl      = Slider(title = "Porosity", start = poros[0], end = poros[1], step = poros[2], value = poros[3],
                     format=FuncTickFormatter(code="""return tick.toFixed(2)+' [-]'"""),sizing_mode="stretch_width")
 # sliders for linear sorption 
@@ -207,6 +235,12 @@ callback = CustomJS(args=dict(
                             Kd_sl = Kd_sl,
                             rg_CP = rg_CP,
                             rg_ST = rg_ST,
+                            r_us = r_us,
+                            D_us = D_us,
+                            fl_us = fl_us,
+                            r_dict = r_us_dict,
+                            D_dict = D_us_dict,
+                            fl_dict = fl_us_dict,
                             pulse_inj_sl = pulse_inj_sl,
                             BTCp = BTCp,
                             ),
@@ -227,17 +261,24 @@ disp_sl.js_on_change('value', callback)
 flow_sl.js_on_change('value', callback)
 poros_sl.js_on_change('value', callback)
 pulse_inj_sl.js_on_change('value', callback)
+r_us.js_on_event(Tap, callback)
+D_us.js_on_event(Tap, callback)
+fl_us.js_on_event(Tap, callback)
+r_us.js_on_event('value', callback)
+D_us.js_on_event('value', callback)
+fl_us.js_on_event('value', callback)
 rg_CP.js_on_change('active',callback)
 rg_ST.js_on_change('active',callback)
 COLp.js_on_event(Tap, callback)
 COLp.js_on_event(Pan, callback)
 
 layout1 = column(rg_CP,rg_ST,pore_vol_sl,col_len_sl,col_rad_sl,reac_sl,disp_sl,flow_sl,poros_sl,pulse_inj_sl,rho_s_sl,Kd_sl,sizing_mode="stretch_width")
-layout2 = column(savebutton1, savebutton2, sizing_mode="stretch_width")
+layout2 = column(r_us,D_us,fl_us,savebutton1, savebutton2, sizing_mode="stretch_width")
 
 pulse_inj_sl.visible = False
 rho_s_sl.visible = False
 Kd_sl.visible = False
+
 
 tab1 = Panel(child=COLp, title="ADRE")
 plots = Tabs(tabs=[tab1])

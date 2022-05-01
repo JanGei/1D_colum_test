@@ -2,6 +2,8 @@ function getc(x,vel,t,Lcube1,Lcube2,reac_l,reac_h,disp_l,disp_h,t_inj,rg_CP) {
   var c = []
   var cmin = []
   var cmax = []
+  var cloQ = []
+  var cupQ = []
   var r_mean = (reac_l+reac_h)/2
   var D_mean = (disp_l+disp_h)/2
   var H_mean = 2*r_mean*D_mean/sep_vel**2
@@ -64,9 +66,11 @@ function getc(x,vel,t,Lcube1,Lcube2,reac_l,reac_h,disp_l,disp_h,t_inj,rg_CP) {
         }
         cmin[i] = math.min(intlist)
         cmax[i] = math.max(intlist)
+        cloQ[i] = math.quantileSeq(intlist, 0.25)
+        cupQ[i] = math.quantileSeq(intlist, 0.75)
     }
   }
-  return [c, cmin, cmax]
+  return [c, cmin, cmax, cloQ, cupQ]
 }
 
 // console.log() is accessable through F12
@@ -101,11 +105,18 @@ function get_gamma(r_mean,D_mean,sep_vel) {
   return res
 }
 
+function expo(x, f) {
+  return Number.parseFloat(x).toExponential(f);
+  //https://developer.mozilla.org/de/docs/Web/JavaScript/Reference/Global_Objects/Number/toExponential
+}
+
 // Extracting data sources
 var x   = source1.data['x'] 
 var y   = source1.data['y']
 var ymin= source1.data['ymin']
 var ymax= source1.data['ymax']
+var yloQ= source1.data['yloQ']
+var yupQ= source1.data['yupQ']
 var x2  = source2.data['x2']
 var y2  = source2.data['y2']
 var x3  = source3.data['xBTC']
@@ -113,6 +124,7 @@ var y3  = source3.data['yBTC']
 
 var rg_CP     = rg_CP.active                      // [0]
 var rg_SType  = rg_ST.active                      // [0]
+
 
 // Values needed for all models
 const col_len   = col_len_sl.value;                 // [m]
@@ -166,19 +178,25 @@ const gam     = Math.sqrt(1 + 4 * r_mean * D_mean / sep_vel**2)
 var c = []
 var cmin = []
 var cmax = []
+var cloQ = []
+var cupQ = []
 var cBTX = []
 
 // This if statement has no meaning besides preventing a Type Error <-- why is that? It doesnt work without it
 if (1<2){ 
-  [c, cmin, cmax] = getc(x,sep_vel,t,Lcube1,Lcube2,reac_l,reac_h,disp_l,disp_h,t_inj,rg_CP)
+  [c, cmin, cmax, cloQ, cupQ] = getc(x,sep_vel,t,Lcube1,Lcube2,reac_l,reac_h,disp_l,disp_h,t_inj,rg_CP)
+  console.log(cloQ)
   cBTX = getc_BTC(xBTC,sep_vel,tsp,gam,t_inj,D_mean,r_mean,H_mean) 
 }
+
 
 // Update sources
 for (let i = 0; i < c.length; i++) {
   y[i] = c[i]
   ymin[i] = cmin[i]
   ymax[i] = cmax[i]
+  yloQ[i] = cloQ[i]
+  yupQ[i] = cupQ[i]
 }
 for (let i = 0; i < x.length; i++) {
   y2[i] = cBTX[i]
@@ -188,6 +206,7 @@ for (let i = 0; i < x.length; i++) {
 pore_vol_sl.title = 'Pore Volume (1PV =' + (PV/3600).toFixed(2) +'h)';
 BTCp.title.text   = 'Breakthrough Curve at x = ' + xBTC.toFixed(3) + ' m (Drag diamond in upper plot to change)'
 
+// Displaying correct sliders
 if (rg_CP==0) {
   pulse_inj_sl.visible = false
 } else {
@@ -201,5 +220,16 @@ if (rg_SType == 1) {
   Kd_sl.visible = false
 }
 
+// Displaying correct units
+var r_format  = r_dict[r_us.value]
+var D_format  = D_dict[D_us.value]
+var fl_format = fl_dict[fl_us.value]
+reac_sl.format = r_format
+disp_sl.format = D_format
+flow_sl.format = fl_format
+
+reac_sl.format.change.emit();
+disp_sl.format.change.emit();
+flow_sl.format.change.emit();
 source1.change.emit();
 source2.change.emit();
