@@ -1,4 +1,4 @@
-function getc(x,vel,t,Lcube1,Lcube2,reac_l,reac_h,disp_l,disp_h,t_inj,rg_CP,Ret) {
+function getc(x,vel,t,Lcube1,Lcube2,reac_l,reac_h,disp_l,disp_h,t_inj,rg_CP,Ret,r_mean,D_mean,H_mean) {
   var c = []
   var cmin = []
   var cmax = []
@@ -72,6 +72,7 @@ function getc(x,vel,t,Lcube1,Lcube2,reac_l,reac_h,disp_l,disp_h,t_inj,rg_CP,Ret)
         cupQ[i] = math.quantileSeq(intlist, 0.75)
     }
   }
+  console.log(c,reac_l,reac_h,disp_l,disp_h,t_inj,rg_CP,Ret,r_mean,D_mean,H_mean)
   return [c, cmin, cmax, cloQ, cupQ]
 }
 
@@ -106,11 +107,6 @@ function get_gamma(r_mean,D_mean,sep_vel) {
   var res = []
   res = Math.sqrt(1 + 4 * r_mean * D_mean / sep_vel**2)
   return res
-}
-
-function expo(x, f) {
-  return Number.parseFloat(x).toExponential(f);
-  //https://developer.mozilla.org/de/docs/Web/JavaScript/Reference/Global_Objects/Number/toExponential
 }
 
 // Extracting data sources
@@ -150,6 +146,9 @@ const sep_vel = vel / n                       // [m/s]
 const r_mean  = (reac_l+reac_h)/2             // [1/s]
 const D_mean  = (disp_l+disp_h)/2             // [m2/s]
 const H_mean  = 2*r_mean*D_mean/sep_vel**2    // [m/s]
+const r_med   = reac_l+(reac_h-reac_l)*math.median(Lcube1)             // [1/s]
+const D_med   = disp_l+(disp_h-disp_l)*math.median(Lcube2)             // [m2/s]
+const H_med   = 2*r_med*D_med/sep_vel**2    // [m/s]
 const PS      = col_len * A * n               // [m3]
 const PV      = col_len/sep_vel               // [s] VEL oder SEP_VEL?
 const c0      = 1;                            // [-] 
@@ -196,7 +195,7 @@ var cBTX = []
 
 // This if statement has no meaning besides preventing a Type Error <-- why is that? It doesnt work without it
 if (1<2){ 
-  [c, cmin, cmax, cloQ, cupQ] = getc(x,sep_vel,t,Lcube1,Lcube2,reac_l,reac_h,disp_l,disp_h,t_inj,rg_CP,Ret)
+  [c, cmin, cmax, cloQ, cupQ] = getc(x,sep_vel,t,Lcube1,Lcube2,reac_l,reac_h,disp_l,disp_h,t_inj,rg_CP,Ret,r_mean,D_mean,H_mean)
   cBTX = getc_BTC(xBTC,sep_vel,tsp,gam,t_inj,D_mean,r_mean,H_mean,Ret) 
 }
 
