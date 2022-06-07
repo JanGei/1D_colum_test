@@ -4,10 +4,11 @@ function getc(x,vel,t,Lcube1,Lcube2,reac_l,reac_h,disp_l,disp_h,t_inj,rg_CP,Ret)
   var cmax = []
   var cloQ = []
   var cupQ = []
-  var r_mean = (reac_l+reac_h)/2
-  var D_mean = (disp_l+disp_h)/2
-  var H_mean = 2*r_mean*D_mean/sep_vel**2
-  var gam_mean = get_gamma(r_mean,D_mean,vel)
+  var vel_r = vel/Ret
+  //var r_mean = (reac_l+reac_h)/2/Ret
+  //var D_mean = (disp_l+disp_h)/2/Ret
+  //var H_mean = 2*r_mean*D_mean/vel_r**2
+  //var gam_mean = get_gamma(r_mean,D_mean,vel)
   for (let i = 0; i < x.length; i++) { 
       if (x[i] <= 0) {
         if (rg_CP == 1 && t > t_inj) {
@@ -23,47 +24,48 @@ function getc(x,vel,t,Lcube1,Lcube2,reac_l,reac_h,disp_l,disp_h,t_inj,rg_CP,Ret)
       } else {
         var intlist = []
           for (let j = 0; j < Lcube1.length; j++) {
-            var r_intermed = reac_l + (reac_h-reac_l)*Lcube1[j]
-            var D_intermed = disp_l + (disp_h-disp_l)*Lcube2[j]
-            var H_intermed = 2*r_intermed*D_intermed/sep_vel**2
+            var r_intermed = (reac_l + (reac_h-reac_l)*Lcube1[j])/Ret
+            var D_intermed = (disp_l + (disp_h-disp_l)*Lcube2[j])/Ret
+            var H_intermed = 2*r_intermed*D_intermed/vel_r**2
             //var gam_intermed = get_gamma(r_intermed,D_intermed,vel)
             if (rg_CP == 1) {
               // Pulse injection
               if (t<=t_inj) {
                 //intlist[j] = 1/2 * (1-math.erf((x[i]-vel*t) / math.sqrt(4*D_intermed*t)))
                 // eq 8 in Runkler 1996 (O'Loughlin and Bowmer)
-                intlist[j] = 1/2/Ret * ( math.exp(-r_intermed*x[i]/sep_vel) * (1-math.erf((x[i] - sep_vel*t*(1+ H_intermed))/(2*math.sqrt(D_intermed*t)))) )
+                intlist[j] = 1/2 * ( math.exp(-r_intermed*x[i]/vel_r) * (1-math.erf((x[i] - vel_r*t*(1+ H_intermed))/(2*math.sqrt(D_intermed*t)))) )
               } else {
                 //intlist[j] = 1/2 * ((1-math.erf((x[i]-vel*t) / math.sqrt(4*D_intermed*t)))-(1-math.erf((x[i]-vel*(t-t_inj))/math.sqrt(4*D_intermed*(t-t_inj)))));
                 // eq 10 in Runkler 1996 (O'Loughlin and Bowmer)
-                intlist[j] = 1/2/Ret * math.exp(-r_intermed*x[i]/sep_vel) * ( (1-math.erf((x[i]-sep_vel*t*(1+H_intermed))/(2*math.sqrt(D_intermed*t)))) - (1-math.erf((x[i]-sep_vel*(t-t_inj)*(1+H_intermed))/(2*math.sqrt(D_intermed*(t-t_inj))))) )
+                intlist[j] = 1/2 * math.exp(-r_intermed*x[i]/vel_r) * ( (1-math.erf((x[i]-vel_r*t*(1+H_intermed))/(2*math.sqrt(D_intermed*t)))) - (1-math.erf((x[i]-vel_r*(t-t_inj)*(1+H_intermed))/(2*math.sqrt(D_intermed*(t-t_inj))))) )
               }
             } else {
               // Cotinuous injection
               //intlist[j] = 1/2 * Math.exp(x[i]*vel/(2*D_intermed))*(Math.exp((-x[i])*vel*gam_intermed/(2*D_intermed))*(1-math.erf((x[i]-vel*t*gam_intermed)/math.sqrt(4*D_intermed*t)))+math.exp(x[i]*vel*gam_intermed/(2*D_intermed))*(1-math.erf((x[i]+vel*t*gam_intermed)/math.sqrt(4*D_intermed*t))));
               // eq 8 in Runkler 1996 (O'Loughlin and Bowmer)
-              intlist[j] = 1/2/Ret * ( math.exp(-r_intermed*x[i]/sep_vel) * (1-math.erf((x[i] - sep_vel*t*(1+ H_intermed))/(2*math.sqrt(D_intermed*t)))) )
+              intlist[j] = 1/2 * ( math.exp(-r_intermed*x[i]/vel_r) * (1-math.erf((x[i] - vel_r*t*(1+ H_intermed))/(2*math.sqrt(D_intermed*t)))) )
             }
           }
         // Main line with mean values of dispersion and reaction
-        if (rg_CP==1){
+        //if (rg_CP==1){
           // Pulse injection
-          if (t<=t_inj) {
+          //if (t<=t_inj) {
             //c[i] = 1/2 * (1-math.erf((x[i]-vel*t) / math.sqrt(4*D_mean*t)))
             // eq 8 in Runkler 1996 (O'Loughlin and Bowmer)
-            c[i] = 1/2/Ret * ( math.exp(-r_mean*x[i]/sep_vel) * (1-math.erf((x[i] - sep_vel*t*(1+ H_mean))/(2*math.sqrt(D_mean*t)))) )
-          } else {
+            //c[i] = 1/2 * ( math.exp(-r_mean*x[i]/vel_r) * (1-math.erf((x[i] - vel_r*t*(1+ H_mean))/(2*math.sqrt(D_mean*t)))) )
+          //} else {
             //c[i] = 1/2 * ((1-math.erf((x[i]-vel*t) / math.sqrt(4*D_mean*t)))-(1-math.erf((x[i]-vel*(t-t_inj))/math.sqrt(4*D_mean*(t-t_inj)))))
             // eq 10 in Runkler 1996 (O'Loughlin and Bowmer)
-            c[i] = 1/2/Ret * math.exp(-r_mean*x[i]/sep_vel) * ( (1-math.erf((x[i]-sep_vel*t*(1+H_mean))/(2*math.sqrt(D_mean*t)))) - (1-math.erf((x[i]-sep_vel*(t-t_inj)*(1+H_mean))/(2*math.sqrt(D_mean*(t-t_inj))))) )
-          }
-        } else {
+            //c[i] = 1/2 * math.exp(-r_mean*x[i]/vel_r) * ( (1-math.erf((x[i]-vel_r*t*(1+H_mean))/(2*math.sqrt(D_mean*t)))) - (1-math.erf((x[i]-vel_r*(t-t_inj)*(1+H_mean))/(2*math.sqrt(D_mean*(t-t_inj))))) )
+          //}
+        //} else {
           // Continuous injection
           // eq 8.66 in hydrogeology script (Ogata Banks)
           //c[i] = 1/2 * Math.exp(x[i]*vel/(2*D_mean))*(Math.exp((-x[i])*vel*gam_mean/(2*D_mean))*(1-math.erf((x[i]-vel*t*gam_mean)/math.sqrt(4*D_mean*t)))+math.exp(x[i]*vel*gam_mean/(2*D_mean))*(1-math.erf((x[i]+vel*t*gam_mean)/math.sqrt(4*D_mean*t))));
           // eq 8 in Runkler 1996 (O'Loughlin and Bowmer)
-          c[i] = 1/2/Ret * ( math.exp(-r_mean*x[i]/sep_vel) * (1-math.erf((x[i] - sep_vel*t*(1+ H_mean))/(2*math.sqrt(D_mean*t)))) )
-        }
+          //c[i] = 1/2 * ( math.exp(-r_mean*x[i]/vel_r) * (1-math.erf((x[i] - vel_r*t*(1+ H_mean))/(2*math.sqrt(D_mean*t)))) )
+        //}
+        c[i]    = math.median(intlist)
         cmin[i] = math.min(intlist)
         cmax[i] = math.max(intlist)
         cloQ[i] = math.quantileSeq(intlist, 0.25)
@@ -76,24 +78,25 @@ function getc(x,vel,t,Lcube1,Lcube2,reac_l,reac_h,disp_l,disp_h,t_inj,rg_CP,Ret)
 // console.log() is accessable through F12
 
 
-function getc_BTC(xBTC,vel,tsp,gam,t_inj,D_mean,r_mean,H_mean) {
+function getc_BTC(xBTC,vel,tsp,gam,t_inj,D_mean,r_mean,H_mean,Ret) {
   const c = []
+  var vel_r = vel/Ret
   for (let i = 0; i < tsp.length; i++) {
       if (rg_CP==1){
         // Pulse injection 
         if (tsp[i]<=t_inj) {
-          //c[i] = 1/2 * (1-math.erf((xBTC-vel*tsp[i]) / math.sqrt(4*D*tsp[i])))
-          c[i] = 1/2/Ret * ( math.exp(-r_mean*xBTC/vel) * (1-math.erf((xBTC - vel*tsp[i]*(1+ H_mean))/(2*math.sqrt(D_mean*tsp[i])))) )
+          //c[i] = 1/2 * (1-math.erf((xBTC-vel_r*tsp[i]) / math.sqrt(4*D*tsp[i])))
+          c[i] = 1/2 * ( math.exp(-r_mean*xBTC/vel_r) * (1-math.erf((xBTC - vel_r*tsp[i]*(1+ H_mean))/(2*math.sqrt(D_mean*tsp[i])))) )
         } else {
-          //c[i] = 1/2 * ((1-math.erf((xBTC-vel*tsp[i]) / math.sqrt(4*D*tsp[i])))-(1-math.erf((xBTC-vel*(tsp[i]-t_inj))/math.sqrt(4*D*(tsp[i]-t_inj)))));
-          c[i] = 1/2/Ret * math.exp(-r_mean*xBTC/vel) * ( (1-math.erf((xBTC-vel*tsp[i]*(1+H_mean))/(2*math.sqrt(D_mean*tsp[i])))) - (1-math.erf((xBTC-vel*(tsp[i]-t_inj)*(1+H_mean))/(2*math.sqrt(D_mean*(tsp[i]-t_inj))))) )
+          //c[i] = 1/2 * ((1-math.erf((xBTC-vel_r*tsp[i]) / math.sqrt(4*D*tsp[i])))-(1-math.erf((xBTC-vel_r*(tsp[i]-t_inj))/math.sqrt(4*D*(tsp[i]-t_inj)))));
+          c[i] = 1/2 * math.exp(-r_mean*xBTC/vel_r) * ( (1-math.erf((xBTC-vel_r*tsp[i]*(1+H_mean))/(2*math.sqrt(D_mean*tsp[i])))) - (1-math.erf((xBTC-vel_r*(tsp[i]-t_inj)*(1+H_mean))/(2*math.sqrt(D_mean*(tsp[i]-t_inj))))) )
         }
       } else {
         // Continuous injection
         // eq 8.66 in hydrogeology script (Ogata Banks)
-        //c[i] = 1/2 * Math.exp(xBTC*vel/(2*D_mean))*(Math.exp((-xBTC)*vel*gam/(2*D_mean))*(1-math.erf((xBTC-vel*tsp[i]*gam)/math.sqrt(4*D_mean*tsp[i])))+math.exp(xBTC*vel*gam/(2*D_mean))*(1-math.erf((xBTC+vel*tsp[i]*gam)/math.sqrt(4*D_mean*tsp[i]))));
+        //c[i] = 1/2 * Math.exp(xBTC*vel_r/(2*D_mean))*(Math.exp((-xBTC)*vel_r*gam/(2*D_mean))*(1-math.erf((xBTC-vel_r*tsp[i]*gam)/math.sqrt(4*D_mean*tsp[i])))+math.exp(xBTC*vel_r*gam/(2*D_mean))*(1-math.erf((xBTC+vel_r*tsp[i]*gam)/math.sqrt(4*D_mean*tsp[i]))));
         // eq 8 in Runkler 1996 (O'Loughlin and Bowmer)
-        c[i] = 1/2/Ret * ( math.exp(-r_mean*xBTC/vel) * (1-math.erf((xBTC - vel*tsp[i]*(1+ H_mean))/(2*math.sqrt(D_mean*tsp[i])))) )
+        c[i] = 1/2 * ( math.exp(-r_mean*xBTC/vel_r) * (1-math.erf((xBTC - vel_r*tsp[i]*(1+ H_mean))/(2*math.sqrt(D_mean*tsp[i])))) )
         }
   }
   return c

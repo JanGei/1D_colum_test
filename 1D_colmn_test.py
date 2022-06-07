@@ -41,15 +41,15 @@ def getc_cont(x,c,vel,t,L1,L2,reac_l,reac_h,disp_l,disp_h):
 
 # Initial slider parameters (min, max, step, value)
 # Pore Volume [-]
-pore_vol  = [np.log(0.001), np.log(7), (np.log(7)-np.log(0.001)) / 1000, np.log(0.5)]
+pore_vol  = [np.log(0.001), np.log(10), (np.log(10)-np.log(0.001)) / 1000, np.log(0.5)]
 # Column radius [m]
 col_rad   = [0.005, 0.2, 0.0001, 0.05]
 # Flow rate [ml/h]
 flow      = [1, 50, 0.1, 10]
 # Porosity [-]
 poros     = [0.01, 1, 0.01, 0.5]
-# Duration of pulse injection [min]
-puls_inj  = [30, 43200, 30, 18000]
+# Duration of pulse injection [s]
+puls_inj  = [30, 360000, 30, 18000]
 # Column length [m]
 col_len   = [0.01, 0.5, 0.001, 0.2]
 # Solid densitiy [kg/m3]
@@ -179,7 +179,7 @@ BTCp = Figure(min_height = 400, y_axis_label='c(t)/c0',
             x_axis_label='Pore Volume',sizing_mode="stretch_both")
 BTCp.line('x2', 'y2', source = source2, line_width = 3, line_alpha = 0.6, line_color = 'red')
 BTCp.y_range = Range1d(0, 1.05)
-BTCp.x_range = Range1d(0, 7)
+BTCp.x_range = Range1d(0, exp(pore_vol[1]))
 BTCp.title = "Breakthrough Curve at x = 0.100 m (Drag diamond in upper plot to change)"
 BTCp.xaxis.axis_label_text_font_size = "17pt"
 BTCp.yaxis.axis_label_text_font_size = "17pt"
