@@ -32,9 +32,9 @@ def getc_cont(x,c,vel,t,L1,L2,reac_l,reac_h,disp_l,disp_h):
       if x[i] <= 0:
         c[j,i] = 1
       else: 
-        # 8.66 from Hydro-Skript (Ogata-Banks)
+        # (Ogata-Banks (8.66))
         # c[j,i] = 1/2 * exp(x[i]*vel/(2*D_intermed))*(exp(-x[i]*vel*gam_intermed/(2*D_intermed))*erfc((x[i]-vel*t*gam_intermed)/sqrt(4*D_intermed*t))+exp(x[i]*vel*gam_intermed/(2*D_intermed))*erfc((x[i]+vel*t*gam_intermed)/sqrt(4*D_intermed*t)))
-        # Eq (8) from Runkler 1996
+        # (Runkler 1996 (Eq. 8))
         c[j,i] = 1/2 * exp(-r_intermed*x[i]/vel) * erfc((x[i]- vel*t*(1+H_intermed))/(2*sqrt(D_intermed*t)))
   
   return c
