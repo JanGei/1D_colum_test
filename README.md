@@ -1,7 +1,7 @@
 ## 1-Dimensional Analytical Column Test
 
 #### General Structure
-This repository contains an interactive, analytical [model]([https://bokeh.org/](https://jangei.github.io/1D_colum_test_analytical/)) that solves 1-dimensional solute transport through a cylinder, representative of a column experiment. 
+This repository contains an interactive, analytical [model](https://jangei.github.io/1D_colum_test_analytical/) that solves 1-dimensional solute transport through a cylinder, representative of a column experiment. 
 The basic structure of the model is developed in Python, while the interactive nature of this model functions through JavaScript. 
 This is realized through the Python library [bokeh](https://bokeh.org/) which provides customizable JavaScript callbacks in the Python language.
 
@@ -62,5 +62,5 @@ Collapsing the range slider minimum and maximum into one point for both variable
 
 #### Future Work and Extensions
 
-An extended (and numerical) version of this model can be found [here]([https://bokeh.org/](https://github.com/JanGei/1D_column_test_numerical)). 
+An extended (and numerical) version of this model can be found [here](https://github.com/JanGei/1D_column_test_numerical). 
 It contains non-linear sorption (Freundlich and Langmuir). Further possible extensions and future work is discussed there.
