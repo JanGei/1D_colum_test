@@ -74,7 +74,9 @@ disp      = [np.log(1e-6), np.log(1e-1), (np.log(1e-1)-np.log(1e-6))/300, np.log
 reac      = [np.log(1e-4), np.log(1), (np.log(1)-np.log(1e-4))/300, np.log(1e-3), np.log(5e-3)]
 
 # Subdividing the column into 1000 equally long parts
-x           = np.linspace(-col_len[3]*0.02,col_len[3],num_n)
+x         = np.linspace(col_len[3]*0.005,col_len[3],num_n)
+# Extending x to display boundary condition
+x         = np.insert(x, 0, col_len[3]*-0.05)
 # Subdividing the duration of the experiment, i.e. 10 pore volumes, into 1000 equally long parts
 PVspan      = np.linspace(exp(pore_vol[0]),exp(pore_vol[1]),num_n)
 
