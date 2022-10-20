@@ -179,8 +179,12 @@ var tsp = []
 
 // Discretize space (upper plot) and time (lower plot)
 for (let j = 0; j < x.length; j++) {
-  x[j] = -0.02*col_len + 1.02*col_len/x.length * j;
-}
+  if (j == 0) {
+    x[j] = - 0.005 * col_len 
+  } else {
+    x[j] = 0.005 * col_len * j;
+}}
+
 for (let j = 0; j < x2.length; j++) {
   tsp[j] = x2[j] * PV;
 }
