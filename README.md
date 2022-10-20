@@ -1,7 +1,7 @@
 ## 1-Dimensional Analytical Column Test
 
 #### General Structure
-This repository contains an interactive, analytical [model](https://jangei.github.io/1D_colum_test_analytical/) that solves 1-dimensional solute transport through a cylinder, representative of a column experiment. 
+This repository contains an interactive, analytical [model](https://jangei.github.io/1D_column_test_analytical/) that solves 1-dimensional solute transport through a cylinder, representative of a n experiment. 
 The basic structure of the model is developed in Python, while the interactive nature of this model functions through JavaScript. 
 This is realized through the Python library [bokeh](https://bokeh.org/) which provides customizable JavaScript callbacks in the Python language.
 
